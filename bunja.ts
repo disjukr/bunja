@@ -72,7 +72,7 @@ export function useBunja<T>(bunja: Bunja<T>): T {
   React.useEffect(() => {
     scopes.forEach((scope) => scope.reg(rid));
     return () => scopes.forEach((scope) => scope.dereg(rid));
-  }, [rid]);
+  }, [rid, ...scopes]);
   return bunjaInstance.value;
 }
 
