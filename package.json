@@ -1,7 +1,7 @@
 {
   "name": "bunja",
   "version": "0.0.0",
-  "description": "Minimal Dependency Injection Library for React",
+  "description": "State Lifetime Manager for React",
   "main": "bunja.ts",
   "scripts": {},
   "keywords": [
