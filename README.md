@@ -33,19 +33,27 @@ You can use `bunja` to define a state with a finite lifetime and use the `useBun
 You can define a bunja using the `bunja` function. When you access the defined bunja with the `useBunja` hook, a bunja instance is created.\
 If all components in the render tree that refer to the bunja disappear, the bunja instance is automatically destroyed.
 
+You can also register functions to be called when the dependency on the bunja starts and ends by using the `mount` and `unmount` fields in the init function's return value.
+
 ```ts
 const countBunja = bunja([], () => {
   const countAtom = atom(0);
-  return { value: countAtom };
+  return {
+    value: countAtom,
+    mount: () => console.log("mounted"),
+    unmount: () => console.log("unmounted"),
+  };
 });
 
 function MyComponent() {
   const countAtom = useBunja(countBunja);
   const [count, setCount] = useAtom(countAtom);
-  ...
+  // Your component logic here
 }
 ```
 
-TODO: mount, unmount
+This code snippet defines a bunja that creates a `countAtom`.\
+The `mount` function is logged when the bunja instance is first accessed,
+and the `unmount` function is logged when it is no longer referenced by any component in the render tree.
 
 TODO: context
