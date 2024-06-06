@@ -28,4 +28,24 @@ You can typically use jotai or something, and when lifetime management becomes n
 Bunja provides two functions: `bunja` and `useBunja`.\
 You can use `bunja` to define a state with a finite lifetime and use the `useBunja` hook to access that state.
 
-**(TODO)**
+### Defining a Bunja
+
+You can define a bunja using the `bunja` function. When you access the defined bunja with the `useBunja` hook, a bunja instance is created.\
+If all components in the render tree that refer to the bunja disappear, the bunja instance is automatically destroyed.
+
+```ts
+const countBunja = bunja([], () => {
+  const countAtom = atom(0);
+  return { value: countAtom };
+});
+
+function MyComponent() {
+  const countAtom = useBunja(countBunja);
+  const [count, setCount] = useAtom(countAtom);
+  ...
+}
+```
+
+TODO: mount, unmount
+
+TODO: context
