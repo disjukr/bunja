@@ -1,6 +1,6 @@
 {
   "name": "bunja",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "State Lifetime Manager for React",
   "main": "bunja.ts",
   "scripts": {},

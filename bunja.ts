@@ -1,9 +1,7 @@
 import * as React from "react";
 
 disposePolyfill: {
-  const S = Symbol as any;
-  S.dispose ??= Symbol.for("dispose");
-  S.asyncDispose ??= Symbol.for("asyncDispose");
+  (Symbol as any).dispose ??= Symbol("Symbol.dispose");
 }
 
 type Dep<T> = React.Context<T> | Bunja<T>;
@@ -105,7 +103,7 @@ class BunjaInstance<T> extends RefCounter {
   }
   [Symbol.dispose]() {
     delete bunjas[this.biid];
-    (this.value[Symbol.asyncDispose] ?? this.value[Symbol.dispose])?.();
+    this.value[Symbol.dispose]?.();
   }
 }
 
