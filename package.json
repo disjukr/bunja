@@ -1,6 +1,6 @@
 {
   "name": "bunja",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "State Lifetime Manager for React",
   "main": "bunja.ts",
   "scripts": {},
@@ -16,6 +16,12 @@
     "react": "^18"
   },
   "peerDependencies": {
+    "@types/react": "*",
     "react": ">=17"
+  },
+  "peerDependenciesMeta": {
+    "@types/react": {
+      "optional": true
+    }
   }
 }
