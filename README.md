@@ -15,8 +15,8 @@ Bunja is a library designed to address these weaknesses.\
 Each state defined with Bunja has a lifetime that begins when it is first depended on somewhere in the render tree and ends when all dependencies disappear.
 
 Therefore, when writing a state to manage a WebSocket,
-you only need to create a mount handler that establishes the WebSocket connection and an unmount handler that terminates the connection.\
-The library automatically tracks the actual usage period and calls the mount and unmount handlers as needed.
+you only need to create a function that establishes the WebSocket connection and an dispose handler that terminates the connection.\
+The library automatically tracks the actual usage period and calls the init and dispose as needed.
 
 ## So, do I no longer need jotai or other state management libraries?
 
@@ -33,27 +33,27 @@ You can use `bunja` to define a state with a finite lifetime and use the `useBun
 You can define a bunja using the `bunja` function. When you access the defined bunja with the `useBunja` hook, a bunja instance is created.\
 If all components in the render tree that refer to the bunja disappear, the bunja instance is automatically destroyed.
 
-You can also register functions to be called when the dependency on the bunja starts and ends by using the `mount` and `unmount` fields in the init function's return value.
+If you want to clean up resources when the bunja's lifetime ends, you can use the `Symbol.dispose` field.
 
 ```ts
 const countBunja = bunja([], () => {
   const countAtom = atom(0);
   return {
-    value: countAtom,
-    mount: () => console.log("mounted"),
-    unmount: () => console.log("unmounted"),
+    countAtom,
+    [Symbol.dispose]() {
+      console.log("disposed");
+    },
   };
 });
 
 function MyComponent() {
-  const countAtom = useBunja(countBunja);
+  const { countAtom } = useBunja(countBunja);
   const [count, setCount] = useAtom(countAtom);
   // Your component logic here
 }
 ```
 
 This code snippet defines a bunja that creates a `countAtom`.\
-The `mount` function is logged when the bunja instance is first accessed,
-and the `unmount` function is logged when it is no longer referenced by any component in the render tree.
+The `Symbol.dispose` method is used when the bunja instance is no longer referenced by any component in the render tree, allowing you to clean up resources appropriately.
 
 TODO: context
