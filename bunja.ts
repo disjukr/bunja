@@ -58,14 +58,13 @@ export function bunja<T, const U extends any[]>(
   const dedupedContexts = Array.from(
     new Set([...contexts, ...bunjas.flatMap((def) => def.contexts)])
   );
-  return new Bunja(bunja.counter++, deps, dedupedContexts, init);
+  return new Bunja(bunja.counter++, deps, dedupedContexts, init as any);
 }
 bunja.counter = 0;
 
 export function useBunja<T>(bunja: Bunja<T>): T {
   const { id, deps, contexts } = bunja;
   const store = React.useContext(BunjaStoreContext);
-  const rid = useRid();
   const tuples = contexts.map((c) => [c, React.useContext(c)] as const);
   const scopes = tuples.map(([context, value]) => getScope(context, value));
   const scopeMap = new Map(tuples);
@@ -79,13 +78,13 @@ export function useBunja<T>(bunja: Bunja<T>): T {
     .join(",")}`;
   const instance = store.get(bunja, biid, args);
   React.useEffect(() => {
-    instance.reg(rid);
-    return () => instance.dereg(rid);
+    instance.add();
+    return () => instance.sub();
   }, [instance]);
   React.useEffect(() => {
-    scopes.forEach((scope) => scope.reg(rid));
-    return () => scopes.forEach((scope) => scope.dereg(rid));
-  }, [rid, ...scopes]);
+    scopes.forEach((scope) => scope.add());
+    return () => scopes.forEach((scope) => scope.sub());
+  }, scopes);
   return instance.value as T;
 }
 
@@ -101,17 +100,17 @@ function getScope(context: React.Context<any>, value: any) {
 }
 getScope.counter = 0;
 
-abstract class RefCounter<T = number> {
+abstract class RefCounter {
   #disposed = false;
-  refs = new Set<T>();
-  reg(reference: T) {
-    this.refs.add(reference);
+  #count = 0;
+  add() {
+    this.#count++;
   }
-  dereg(reference: T) {
-    this.refs.delete(reference);
+  sub() {
+    this.#count--;
     setTimeout(() => {
       if (this.#disposed) return;
-      if (this.refs.size < 1) {
+      if (this.#count < 1) {
         this.#disposed = true;
         this.dispose();
       }
@@ -130,9 +129,9 @@ class BunjaInstance extends RefCounter {
   ) {
     super();
   }
-  reg(reference: number) {
+  add() {
     this.#cleanup ??= this.value[Bunja.effect]?.() ?? noop;
-    super.reg(reference);
+    super.add();
   }
   dispose = () => {
     this.#cleanup?.();
