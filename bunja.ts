@@ -1,34 +1,55 @@
 import * as React from "react";
 
-disposePolyfill: {
-  (Symbol as any).dispose ??= Symbol("Symbol.dispose");
-}
+export type Dep<T> = React.Context<T> | Bunja<T>;
 
-type Dep<T> = React.Context<T> | Bunja<T>;
-
-class Bunja<T> {
+export class Bunja<T> {
   constructor(
     public id: number,
     public deps: Dep<any>[],
     public contexts: React.Context<any>[],
-    public init: (...args: any[]) => T
+    public init: (...args: any[]) => T & BunjaValue
   ) {}
+  static readonly effect = Symbol("Bunja.effect");
 }
 
-const bunjas: Record<string, BunjaInstance<any>> = {};
-export function bunja<T>(deps: [], init: () => T): Bunja<T>;
-export function bunja<T, U>(deps: [Dep<U>], init: (u: U) => T): Bunja<T>;
+export class BunjaStore {
+  #bunjas: Record<string, BunjaInstance> = {};
+  get(bunja: Bunja<any>, biid: string, args: any[]) {
+    return (this.#bunjas[biid] ??= new BunjaInstance(
+      this,
+      biid,
+      bunja.init(...args)
+    ));
+  }
+  delete(biid: string) {
+    delete this.#bunjas[biid];
+  }
+}
+
+export const createBunjaStore = () => new BunjaStore();
+export const BunjaStoreContext = React.createContext(createBunjaStore());
+
+export type BunjaEffectFn = () => () => void;
+export interface BunjaValue {
+  [Bunja.effect]?: BunjaEffectFn;
+}
+
+export function bunja<T>(deps: [], init: () => T & BunjaValue): Bunja<T>;
+export function bunja<T, U>(
+  deps: [Dep<U>],
+  init: (u: U) => T & BunjaValue
+): Bunja<T>;
 export function bunja<T, U, V>(
   deps: [Dep<U>, Dep<V>],
-  init: (u: U, v: V) => T
+  init: (u: U, v: V) => T & BunjaValue
 ): Bunja<T>;
 export function bunja<T, U, V, W>(
   deps: [Dep<U>, Dep<V>, Dep<W>],
-  init: (u: U, v: V, w: W) => T
+  init: (u: U, v: V, w: W) => T & BunjaValue
 ): Bunja<T>;
 export function bunja<T, const U extends any[]>(
   deps: { [K in keyof U]: Dep<U[K]> },
-  init: (...args: U) => T
+  init: (...args: U) => T & BunjaValue
 ): Bunja<T> {
   const contexts = deps.filter(
     (dep) => !(dep instanceof Bunja)
@@ -42,7 +63,8 @@ export function bunja<T, const U extends any[]>(
 bunja.counter = 0;
 
 export function useBunja<T>(bunja: Bunja<T>): T {
-  const { id, deps, contexts, init } = bunja;
+  const { id, deps, contexts } = bunja;
+  const store = React.useContext(BunjaStoreContext);
   const rid = useRid();
   const tuples = contexts.map((c) => [c, React.useContext(c)] as const);
   const scopes = tuples.map(([context, value]) => getScope(context, value));
@@ -55,7 +77,7 @@ export function useBunja<T>(bunja: Bunja<T>): T {
     .map(({ id }) => id)
     .sort()
     .join(",")}`;
-  const instance = (bunjas[biid] ??= new BunjaInstance(biid, init(...args)));
+  const instance = store.get(bunja, biid, args);
   React.useEffect(() => {
     instance.reg(rid);
     return () => instance.dereg(rid);
@@ -64,7 +86,7 @@ export function useBunja<T>(bunja: Bunja<T>): T {
     scopes.forEach((scope) => scope.reg(rid));
     return () => scopes.forEach((scope) => scope.dereg(rid));
   }, [rid, ...scopes]);
-  return instance.value;
+  return instance.value as T;
 }
 
 const useRid = () => React.useState(() => useRid.counter++)[0];
@@ -79,7 +101,7 @@ function getScope(context: React.Context<any>, value: any) {
 }
 getScope.counter = 0;
 
-class RefCounter<T = number> {
+abstract class RefCounter<T = number> {
   #disposed = false;
   refs = new Set<T>();
   reg(reference: T) {
@@ -91,30 +113,40 @@ class RefCounter<T = number> {
       if (this.#disposed) return;
       if (this.refs.size < 1) {
         this.#disposed = true;
-        this[Symbol.dispose]();
+        this.dispose();
       }
     });
   }
+  abstract dispose: () => void;
 }
 
-class BunjaInstance<T> extends RefCounter {
-  constructor(public biid: string, public value: T) {
+const noop = () => {};
+class BunjaInstance extends RefCounter {
+  #cleanup: (() => void) | undefined;
+  constructor(
+    public store: BunjaStore,
+    public biid: string,
+    public value: BunjaValue
+  ) {
     super();
   }
-  [Symbol.dispose]() {
-    delete bunjas[this.biid];
-    this.value[Symbol.dispose]?.();
+  reg(reference: number) {
+    this.#cleanup ??= this.value[Bunja.effect]?.() ?? noop;
+    super.reg(reference);
   }
+  dispose = () => {
+    this.#cleanup?.();
+    this.store.delete(this.biid);
+  };
 }
 
 class Scope extends RefCounter {
   constructor(
-    dispose: () => void,
+    public dispose: () => void,
     public context: React.Context<any>,
     public value: any,
     public id: number
   ) {
     super();
-    this[Symbol.dispose] = dispose;
   }
 }

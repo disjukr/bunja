@@ -25,7 +25,7 @@ You can typically use jotai or something, and when lifetime management becomes n
 
 ## How to use
 
-Bunja provides two functions: `bunja` and `useBunja`.\
+Bunja basically provides two functions: `bunja` and `useBunja`.\
 You can use `bunja` to define a state with a finite lifetime and use the `useBunja` hook to access that state.
 
 ### Defining a Bunja
@@ -33,15 +33,18 @@ You can use `bunja` to define a state with a finite lifetime and use the `useBun
 You can define a bunja using the `bunja` function. When you access the defined bunja with the `useBunja` hook, a bunja instance is created.\
 If all components in the render tree that refer to the bunja disappear, the bunja instance is automatically destroyed.
 
-If you want to clean up resources when the bunja's lifetime ends, you can use the `Symbol.dispose` field.
+If you want to trigger effects when the lifetime of a bunja starts and ends, you can use the `Bunja.effect` field.
 
 ```ts
+import { bunja, Bunja, useBunja } from "bunja";
+
 const countBunja = bunja([], () => {
   const countAtom = atom(0);
   return {
     countAtom,
-    [Symbol.dispose]() {
-      console.log("disposed");
+    [Bunja.effect]() {
+      console.log("mounted");
+      return () => console.log("unmounted");
     },
   };
 });
@@ -52,8 +55,5 @@ function MyComponent() {
   // Your component logic here
 }
 ```
-
-This code snippet defines a bunja that creates a `countAtom`.\
-The `Symbol.dispose` method is used when the bunja instance is no longer referenced by any component in the render tree, allowing you to clean up resources appropriately.
 
 TODO: context
