@@ -47,6 +47,18 @@ export function bunja<T, U, V, W>(
   deps: [Dep<U>, Dep<V>, Dep<W>],
   init: (u: U, v: V, w: W) => T & BunjaValue
 ): Bunja<T>;
+export function bunja<T, U, V, W, X>(
+  deps: [Dep<U>, Dep<V>, Dep<W>, Dep<X>],
+  init: (u: U, v: V, w: W, x: X) => T & BunjaValue
+): Bunja<T>;
+export function bunja<T, U, V, W, X, Y>(
+  deps: [Dep<U>, Dep<V>, Dep<W>, Dep<X>, Dep<Y>],
+  init: (u: U, v: V, w: W, x: X, y: Y) => T & BunjaValue
+): Bunja<T>;
+export function bunja<T, U, V, W, X, Y, Z>(
+  deps: [Dep<U>, Dep<V>, Dep<W>, Dep<X>, Dep<Y>, Dep<Z>],
+  init: (u: U, v: V, w: W, x: X, y: Y, z: Z) => T & BunjaValue
+): Bunja<T>;
 export function bunja<T, const U extends any[]>(
   deps: { [K in keyof U]: Dep<U[K]> },
   init: (...args: U) => T & BunjaValue
