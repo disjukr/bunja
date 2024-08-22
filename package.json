@@ -1,6 +1,6 @@
 {
   "name": "bunja",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "description": "State Lifetime Manager",
   "main": "bunja.ts",
   "scripts": {},

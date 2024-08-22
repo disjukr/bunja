@@ -22,7 +22,6 @@ export function createScopeFromContext<T>(context: Context<T>): Scope<T> {
 
 const defaultReadScope: ReadScope = (scope) => {
   const context = scopeContextMap.get(scope)!;
-  console.log({ scopeContextMap, scope, context });
   return useContext(context);
 };
 
