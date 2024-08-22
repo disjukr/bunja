@@ -1,33 +1,116 @@
-import * as React from "react";
-
-export type Dep<T> = React.Context<T> | Bunja<T>;
+export type Dep<T> = Bunja<T> | Scope<T>;
 
 export class Bunja<T> {
+  public static readonly bunjas: Bunja<any>[] = [];
+  public readonly id: number;
+  public debugLabel: string = "";
   constructor(
-    public id: number,
-    public deps: Dep<any>[],
-    public contexts: React.Context<any>[],
+    public deps: Dep<any>[], // one depth dependencies
+    public parents: Bunja<any>[], // one depth parents
+    public relatedBunjas: Bunja<any>[], // toposorted parents without self
+    public relatedScopes: Scope<any>[], // deduped
     public init: (...args: any[]) => T & BunjaValue
-  ) {}
+  ) {
+    this.id = Bunja.bunjas.length;
+    Bunja.bunjas.push(this);
+  }
   static readonly effect = Symbol("Bunja.effect");
+  toString() {
+    return `[${this.debugLabel} Bunja:${this.id}]`;
+  }
 }
+
+export class Scope<T> {
+  public static readonly scopes: Scope<any>[] = [];
+  public readonly id: number;
+  constructor() {
+    this.id = Scope.scopes.length;
+    Scope.scopes.push(this);
+  }
+  toString() {
+    return this.id;
+  }
+}
+
+export type ReadScope = <T>(scope: Scope<T>) => T;
 
 export class BunjaStore {
   #bunjas: Record<string, BunjaInstance> = {};
-  get(bunja: Bunja<any>, biid: string, args: any[]) {
-    return (this.#bunjas[biid] ??= new BunjaInstance(
-      this,
-      biid,
-      bunja.init(...args)
-    ));
+  #scopes: Map<Scope<any>, Map<any, ScopeInstance>> = new Map();
+  get<T>(bunja: Bunja<T>, readScope: ReadScope) {
+    const scopeInstanceMap = new Map(
+      bunja.relatedScopes.map((scope) => [
+        scope,
+        this.#getScopeInstance(scope, readScope(scope)),
+      ])
+    );
+    const bunjaInstance = this.#getBunjaInstance(bunja, scopeInstanceMap);
+    const { relatedBunjaInstanceMap } = bunjaInstance; // toposorted
+    return {
+      value: bunjaInstance.value as T,
+      effect() {
+        relatedBunjaInstanceMap.forEach((related) => related.add());
+        bunjaInstance.add();
+        scopeInstanceMap.forEach((scope) => scope.add());
+        return () => {
+          // concern: reverse order?
+          relatedBunjaInstanceMap.forEach((related) => related.sub());
+          bunjaInstance.sub();
+          scopeInstanceMap.forEach((scope) => scope.sub());
+        };
+      },
+    };
   }
-  delete(biid: string) {
-    delete this.#bunjas[biid];
+  #getBunjaInstance(
+    bunja: Bunja<any>,
+    scopeInstanceMap: Map<Scope<any>, ScopeInstance>
+  ): BunjaInstance {
+    const localScopeInstanceMap = new Map(
+      bunja.relatedScopes.map((scope) => [scope, scopeInstanceMap.get(scope)!])
+    );
+    const scopeInstanceIds = Array.from(localScopeInstanceMap.values())
+      .map(({ instanceId }) => instanceId)
+      .sort((a, b) => a - b);
+    const bunjaInstanceId = `${bunja.id}:${scopeInstanceIds.join(",")}`;
+    if (this.#bunjas[bunjaInstanceId]) return this.#bunjas[bunjaInstanceId];
+    const relatedBunjaInstanceMap = new Map(
+      bunja.relatedBunjas.map((relatedBunja) => [
+        relatedBunja,
+        this.#getBunjaInstance(relatedBunja, scopeInstanceMap),
+      ])
+    );
+    const args = bunja.deps.map((dep) => {
+      if (dep instanceof Bunja) return relatedBunjaInstanceMap.get(dep)!.value;
+      if (dep instanceof Scope) return localScopeInstanceMap.get(dep)!.value;
+      throw new Error("Invalid dependency");
+    });
+    const bunjaInstance = new BunjaInstance(
+      () => delete this.#bunjas[bunjaInstanceId],
+      bunjaInstanceId,
+      relatedBunjaInstanceMap,
+      bunja.init.apply(bunja, args)
+    );
+    this.#bunjas[bunjaInstanceId] = bunjaInstance;
+    return bunjaInstance;
+  }
+  #getScopeInstance(scope: Scope<any>, value: any): ScopeInstance {
+    const scopeInstanceMap =
+      this.#scopes.get(scope) ?? this.#scopes.set(scope, new Map()).get(scope)!;
+    const init = () =>
+      new ScopeInstance(
+        () => scopeInstanceMap.delete(value),
+        ScopeInstance.counter++,
+        scope,
+        value
+      );
+    return (
+      scopeInstanceMap.get(value) ??
+      scopeInstanceMap.set(value, init()).get(value)!
+    );
   }
 }
 
 export const createBunjaStore = () => new BunjaStore();
-export const BunjaStoreContext = React.createContext(createBunjaStore());
 
 export type BunjaEffectFn = () => () => void;
 export interface BunjaValue {
@@ -63,54 +146,19 @@ export function bunja<T, const U extends any[]>(
   deps: { [K in keyof U]: Dep<U[K]> },
   init: (...args: U) => T & BunjaValue
 ): Bunja<T> {
-  const contexts = deps.filter(
-    (dep) => !(dep instanceof Bunja)
-  ) as React.Context<any>[];
-  const bunjas = deps.filter((dep) => dep instanceof Bunja) as Bunja<any>[];
-  const dedupedContexts = Array.from(
-    new Set([...contexts, ...bunjas.flatMap((def) => def.contexts)])
+  const parents = deps.filter((dep) => dep instanceof Bunja) as Bunja<any>[];
+  const scopes = deps.filter((dep) => dep instanceof Scope) as Scope<any>[];
+  const relatedBunjas = toposort(parents);
+  const relatedScopes = Array.from(
+    new Set([...scopes, ...parents.flatMap((parent) => parent.relatedScopes)])
   );
-  return new Bunja(bunja.counter++, deps, dedupedContexts, init as any);
+  return new Bunja(deps, parents, relatedBunjas, relatedScopes, init as any);
 }
-bunja.counter = 0;
+bunja.effect = Bunja.effect;
 
-export function useBunja<T>(bunja: Bunja<T>): T {
-  const { id, deps, contexts } = bunja;
-  const store = React.useContext(BunjaStoreContext);
-  const tuples = contexts.map((c) => [c, React.useContext(c)] as const);
-  const scopes = tuples.map(([context, value]) => getScope(context, value));
-  const scopeMap = new Map(tuples);
-  const args = deps.map((dep) => {
-    if (dep instanceof Bunja) return useBunja(dep);
-    return scopeMap.get(dep);
-  });
-  const biid = `${id}:${scopes
-    .map(({ id }) => id)
-    .sort()
-    .join(",")}`;
-  const instance = store.get(bunja, biid, args);
-  React.useEffect(() => {
-    instance.add();
-    return () => instance.sub();
-  }, [instance]);
-  React.useEffect(() => {
-    scopes.forEach((scope) => scope.add());
-    return () => scopes.forEach((scope) => scope.sub());
-  }, scopes);
-  return instance.value as T;
+export function createScope<T>(): Scope<T> {
+  return new Scope();
 }
-
-const useRid = () => React.useState(() => useRid.counter++)[0];
-useRid.counter = 0;
-
-const scopes = new WeakMap<React.Context<any>, Map<any, Scope>>();
-function getScope(context: React.Context<any>, value: any) {
-  const m = scopes.get(context) ?? scopes.set(context, new Map()).get(context)!;
-  const init = () =>
-    new Scope(() => m.delete(value), context, value, getScope.counter++);
-  return m.get(value) ?? m.set(value, init()).get(value)!;
-}
-getScope.counter = 0;
 
 abstract class RefCounter {
   #disposed = false;
@@ -128,36 +176,58 @@ abstract class RefCounter {
       }
     });
   }
-  abstract dispose: () => void;
+  abstract dispose(): void;
 }
 
 const noop = () => {};
 class BunjaInstance extends RefCounter {
   #cleanup: (() => void) | undefined;
+  #dispose: () => void;
   constructor(
-    public store: BunjaStore,
-    public biid: string,
+    dispose: () => void,
+    public instanceId: string,
+    public relatedBunjaInstanceMap: Map<Bunja<any>, BunjaInstance>,
     public value: BunjaValue
   ) {
     super();
+    this.#dispose = () => {
+      this.#cleanup?.();
+      dispose();
+    };
   }
   add() {
     this.#cleanup ??= this.value[Bunja.effect]?.() ?? noop;
     super.add();
   }
-  dispose = () => {
-    this.#cleanup?.();
-    this.store.delete(this.biid);
-  };
+  dispose() {
+    this.#dispose();
+  }
 }
 
-class Scope extends RefCounter {
+class ScopeInstance extends RefCounter {
+  public static counter = 0;
   constructor(
     public dispose: () => void,
-    public context: React.Context<any>,
-    public value: any,
-    public id: number
+    public instanceId: number,
+    public scope: Scope<any>,
+    public value: any
   ) {
     super();
   }
+}
+
+interface Toposortable {
+  parents: Toposortable[];
+}
+function toposort<T extends Toposortable>(nodes: T[]): T[] {
+  const visited = new Set<T>();
+  const result: T[] = [];
+  function visit(current: T) {
+    if (visited.has(current)) return;
+    visited.add(current);
+    for (const parent of current.parents) visit(parent as T);
+    result.push(current);
+  }
+  for (const node of nodes) visit(node);
+  return result;
 }
