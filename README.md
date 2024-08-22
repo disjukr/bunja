@@ -33,16 +33,16 @@ You can use `bunja` to define a state with a finite lifetime and use the `useBun
 You can define a bunja using the `bunja` function. When you access the defined bunja with the `useBunja` hook, a bunja instance is created.\
 If all components in the render tree that refer to the bunja disappear, the bunja instance is automatically destroyed.
 
-If you want to trigger effects when the lifetime of a bunja starts and ends, you can use the `Bunja.effect` field.
+If you want to trigger effects when the lifetime of a bunja starts and ends, you can use the `bunja.effect` field.
 
 ```ts
-import { bunja, Bunja, useBunja } from "bunja";
+import { bunja, useBunja } from "bunja";
 
 const countBunja = bunja([], () => {
   const countAtom = atom(0);
   return {
     countAtom,
-    [Bunja.effect]() {
+    [bunja.effect]() {
       console.log("mounted");
       return () => console.log("unmounted");
     },

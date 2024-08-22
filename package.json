@@ -1,12 +1,11 @@
 {
   "name": "bunja",
-  "version": "0.0.7",
-  "description": "State Lifetime Manager for React",
+  "version": "0.0.8",
+  "description": "State Lifetime Manager",
   "main": "bunja.ts",
   "scripts": {},
   "keywords": [
     "bunja",
-    "react",
     "di"
   ],
   "author": "JongChan Choi <jong@chan.moe>",
@@ -21,6 +20,9 @@
   },
   "peerDependenciesMeta": {
     "@types/react": {
+      "optional": true
+    },
+    "react": {
       "optional": true
     }
   }
