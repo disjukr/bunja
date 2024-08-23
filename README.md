@@ -1,6 +1,6 @@
 # Bunja
 
-Bunja is State Lifetime Manager for React. (Minified & gzipped size < 1kB)\
+Bunja is lightweight State Lifetime Manager.\
 Heavily inspired by [Bunshi](https://github.com/saasquatch/bunshi).
 
 > Definition: Bunja (分子 / 분자) - Korean for molecule, member or element.
