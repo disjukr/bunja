@@ -27,7 +27,7 @@ const defaultReadScope: ReadScope = (scope) => {
 
 export function useBunja<T>(bunja: Bunja<T>, readScope = defaultReadScope): T {
   const store = useContext(BunjaStoreContext);
-  const { value, effect } = store.get(bunja, readScope);
-  useEffect(effect, []);
+  const { value, mount } = store.get(bunja, readScope);
+  useEffect(mount, []);
   return value;
 }

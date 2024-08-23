@@ -48,11 +48,11 @@ export class BunjaStore {
     const { relatedBunjaInstanceMap } = bunjaInstance; // toposorted
     return {
       value: bunjaInstance.value as T,
-      effect() {
+      mount() {
         relatedBunjaInstanceMap.forEach((related) => related.add());
         bunjaInstance.add();
         scopeInstanceMap.forEach((scope) => scope.add());
-        return () => {
+        return function unmount() {
           // concern: reverse order?
           relatedBunjaInstanceMap.forEach((related) => related.sub());
           bunjaInstance.sub();
