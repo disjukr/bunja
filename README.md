@@ -36,7 +36,8 @@ If all components in the render tree that refer to the bunja disappear, the bunj
 If you want to trigger effects when the lifetime of a bunja starts and ends, you can use the `bunja.effect` field.
 
 ```ts
-import { bunja, useBunja } from "bunja";
+import { bunja } from "bunja";
+import { useBunja } from "bunja/react";
 
 const countBunja = bunja([], () => {
   const countAtom = atom(0);
