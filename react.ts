@@ -31,3 +31,21 @@ export function useBunja<T>(bunja: Bunja<T>, readScope = defaultReadScope): T {
   useEffect(mount, []);
   return value;
 }
+
+export type ScopePair<T> = [Scope<T>, T];
+
+export function inject<const T extends ScopePair<any>[]>(
+  overrideTable: T
+): ReadScope {
+  const map = new Map(overrideTable);
+  return (scope) => {
+    if (map.has(scope)) return map.get(scope);
+    const context = scopeContextMap.get(scope);
+    if (!context) {
+      throw new Error(
+        "Unable to read the scope. Please inject the value explicitly or bind scope to the React context."
+      );
+    }
+    return useContext(context);
+  };
+}
