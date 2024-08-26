@@ -16,19 +16,22 @@ export class Bunja<T> {
   }
   static readonly effect = Symbol("Bunja.effect");
   toString() {
-    return `[${this.debugLabel} Bunja:${this.id}]`;
+    const { id, debugLabel } = this;
+    return `[Bunja:${id}${debugLabel && ` - ${debugLabel}`}]`;
   }
 }
 
 export class Scope<T> {
   public static readonly scopes: Scope<any>[] = [];
   public readonly id: number;
+  public debugLabel: string = "";
   constructor() {
     this.id = Scope.scopes.length;
     Scope.scopes.push(this);
   }
   toString() {
-    return this.id;
+    const { id, debugLabel } = this;
+    return `[Scope:${id}${debugLabel && ` - ${debugLabel}`}]`;
   }
 }
 
