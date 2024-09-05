@@ -62,6 +62,7 @@ export class BunjaStore {
           scopeInstanceMap.forEach((scope) => scope.sub());
         };
       },
+      deps: Array.from(scopeInstanceMap.values()).map(({ value }) => value),
     };
   }
   #getBunjaInstance(
