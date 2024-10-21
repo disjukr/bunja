@@ -11,6 +11,7 @@
   "author": "JongChan Choi <jong@chan.moe>",
   "license": "Zlib",
   "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
     "@types/react": "^18",
     "react": "^18"
   },
