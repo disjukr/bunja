@@ -1,7 +1,7 @@
 export type Dep<T> = Bunja<T> | Scope<T>;
 
-const BunjaEffect: unique symbol = Symbol("Bunja.effect");
-type BunjaEffect = typeof BunjaEffect;
+const bunjaEffectSymbol: unique symbol = Symbol("Bunja.effect");
+type BunjaEffectSymbol = typeof bunjaEffectSymbol;
 
 export class Bunja<T> {
   public static readonly bunjas: Bunja<any>[] = [];
@@ -17,7 +17,7 @@ export class Bunja<T> {
     this.id = Bunja.bunjas.length;
     Bunja.bunjas.push(this);
   }
-  static readonly effect: BunjaEffect = BunjaEffect;
+  static readonly effect: BunjaEffectSymbol = bunjaEffectSymbol;
   toString() {
     const { id, debugLabel } = this;
     return `[Bunja:${id}${debugLabel && ` - ${debugLabel}`}]`;
@@ -168,7 +168,7 @@ export const bunja: {
     deps: [Dep<U>, Dep<V>, Dep<W>, Dep<X>, Dep<Y>, Dep<Z>],
     init: (u: U, v: V, w: W, x: X, y: Y, z: Z) => T & BunjaValue,
   ): Bunja<T>;
-  readonly effect: BunjaEffect;
+  readonly effect: BunjaEffectSymbol;
 } = bunjaImpl;
 
 export function createScope<T>(): Scope<T> {
