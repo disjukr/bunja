@@ -1,5 +1,8 @@
 export type Dep<T> = Bunja<T> | Scope<T>;
 
+const BunjaEffect: unique symbol = Symbol("Bunja.effect");
+type BunjaEffect = typeof BunjaEffect;
+
 export class Bunja<T> {
   public static readonly bunjas: Bunja<any>[] = [];
   public readonly id: number;
@@ -9,12 +12,12 @@ export class Bunja<T> {
     public parents: Bunja<any>[], // one depth parents
     public relatedBunjas: Bunja<any>[], // toposorted parents without self
     public relatedScopes: Scope<any>[], // deduped
-    public init: (...args: any[]) => T & BunjaValue
+    public init: (...args: any[]) => T & BunjaValue,
   ) {
     this.id = Bunja.bunjas.length;
     Bunja.bunjas.push(this);
   }
-  static readonly effect = Symbol("Bunja.effect");
+  static readonly effect: BunjaEffect = BunjaEffect;
   toString() {
     const { id, debugLabel } = this;
     return `[Bunja:${id}${debugLabel && ` - ${debugLabel}`}]`;
@@ -40,12 +43,19 @@ export type ReadScope = <T>(scope: Scope<T>) => T;
 export class BunjaStore {
   #bunjas: Record<string, BunjaInstance> = {};
   #scopes: Map<Scope<any>, Map<any, ScopeInstance>> = new Map();
-  get<T>(bunja: Bunja<T>, readScope: ReadScope) {
+  get<T>(
+    bunja: Bunja<T>,
+    readScope: ReadScope,
+  ): {
+    value: T;
+    mount: () => void;
+    deps: any[];
+  } {
     const scopeInstanceMap = new Map(
       bunja.relatedScopes.map((scope) => [
         scope,
         this.#getScopeInstance(scope, readScope(scope)),
-      ])
+      ]),
     );
     const bunjaInstance = this.#getBunjaInstance(bunja, scopeInstanceMap);
     const { relatedBunjaInstanceMap } = bunjaInstance; // toposorted
@@ -55,7 +65,7 @@ export class BunjaStore {
         relatedBunjaInstanceMap.forEach((related) => related.add());
         bunjaInstance.add();
         scopeInstanceMap.forEach((scope) => scope.add());
-        return function unmount() {
+        return function unmount(): void {
           // concern: reverse order?
           relatedBunjaInstanceMap.forEach((related) => related.sub());
           bunjaInstance.sub();
@@ -67,10 +77,10 @@ export class BunjaStore {
   }
   #getBunjaInstance(
     bunja: Bunja<any>,
-    scopeInstanceMap: Map<Scope<any>, ScopeInstance>
+    scopeInstanceMap: Map<Scope<any>, ScopeInstance>,
   ): BunjaInstance {
     const localScopeInstanceMap = new Map(
-      bunja.relatedScopes.map((scope) => [scope, scopeInstanceMap.get(scope)!])
+      bunja.relatedScopes.map((scope) => [scope, scopeInstanceMap.get(scope)!]),
     );
     const scopeInstanceIds = Array.from(localScopeInstanceMap.values())
       .map(({ instanceId }) => instanceId)
@@ -81,7 +91,7 @@ export class BunjaStore {
       bunja.relatedBunjas.map((relatedBunja) => [
         relatedBunja,
         this.#getBunjaInstance(relatedBunja, scopeInstanceMap),
-      ])
+      ]),
     );
     const args = bunja.deps.map((dep) => {
       if (dep instanceof Bunja) return relatedBunjaInstanceMap.get(dep)!.value;
@@ -92,7 +102,7 @@ export class BunjaStore {
       () => delete this.#bunjas[bunjaInstanceId],
       bunjaInstanceId,
       relatedBunjaInstanceMap,
-      bunja.init.apply(bunja, args)
+      bunja.init.apply(bunja, args),
     );
     this.#bunjas[bunjaInstanceId] = bunjaInstance;
     return bunjaInstance;
@@ -105,7 +115,7 @@ export class BunjaStore {
         () => scopeInstanceMap.delete(value),
         ScopeInstance.counter++,
         scope,
-        value
+        value,
       );
     return (
       scopeInstanceMap.get(value) ??
@@ -114,51 +124,52 @@ export class BunjaStore {
   }
 }
 
-export const createBunjaStore = () => new BunjaStore();
+export const createBunjaStore = (): BunjaStore => new BunjaStore();
 
 export type BunjaEffectFn = () => () => void;
 export interface BunjaValue {
   [Bunja.effect]?: BunjaEffectFn;
 }
 
-export function bunja<T>(deps: [], init: () => T & BunjaValue): Bunja<T>;
-export function bunja<T, U>(
-  deps: [Dep<U>],
-  init: (u: U) => T & BunjaValue
-): Bunja<T>;
-export function bunja<T, U, V>(
-  deps: [Dep<U>, Dep<V>],
-  init: (u: U, v: V) => T & BunjaValue
-): Bunja<T>;
-export function bunja<T, U, V, W>(
-  deps: [Dep<U>, Dep<V>, Dep<W>],
-  init: (u: U, v: V, w: W) => T & BunjaValue
-): Bunja<T>;
-export function bunja<T, U, V, W, X>(
-  deps: [Dep<U>, Dep<V>, Dep<W>, Dep<X>],
-  init: (u: U, v: V, w: W, x: X) => T & BunjaValue
-): Bunja<T>;
-export function bunja<T, U, V, W, X, Y>(
-  deps: [Dep<U>, Dep<V>, Dep<W>, Dep<X>, Dep<Y>],
-  init: (u: U, v: V, w: W, x: X, y: Y) => T & BunjaValue
-): Bunja<T>;
-export function bunja<T, U, V, W, X, Y, Z>(
-  deps: [Dep<U>, Dep<V>, Dep<W>, Dep<X>, Dep<Y>, Dep<Z>],
-  init: (u: U, v: V, w: W, x: X, y: Y, z: Z) => T & BunjaValue
-): Bunja<T>;
-export function bunja<T, const U extends any[]>(
+function bunjaImpl<T, const U extends any[]>(
   deps: { [K in keyof U]: Dep<U[K]> },
-  init: (...args: U) => T & BunjaValue
+  init: (...args: U) => T & BunjaValue,
 ): Bunja<T> {
   const parents = deps.filter((dep) => dep instanceof Bunja) as Bunja<any>[];
   const scopes = deps.filter((dep) => dep instanceof Scope) as Scope<any>[];
   const relatedBunjas = toposort(parents);
   const relatedScopes = Array.from(
-    new Set([...scopes, ...parents.flatMap((parent) => parent.relatedScopes)])
+    new Set([...scopes, ...parents.flatMap((parent) => parent.relatedScopes)]),
   );
   return new Bunja(deps, parents, relatedBunjas, relatedScopes, init as any);
 }
-bunja.effect = Bunja.effect;
+bunjaImpl.effect = Bunja.effect;
+
+export const bunja: {
+  <T>(deps: [], init: () => T & BunjaValue): Bunja<T>;
+  <T, U>(deps: [Dep<U>], init: (u: U) => T & BunjaValue): Bunja<T>;
+  <T, U, V>(
+    deps: [Dep<U>, Dep<V>],
+    init: (u: U, v: V) => T & BunjaValue,
+  ): Bunja<T>;
+  <T, U, V, W>(
+    deps: [Dep<U>, Dep<V>, Dep<W>],
+    init: (u: U, v: V, w: W) => T & BunjaValue,
+  ): Bunja<T>;
+  <T, U, V, W, X>(
+    deps: [Dep<U>, Dep<V>, Dep<W>, Dep<X>],
+    init: (u: U, v: V, w: W, x: X) => T & BunjaValue,
+  ): Bunja<T>;
+  <T, U, V, W, X, Y>(
+    deps: [Dep<U>, Dep<V>, Dep<W>, Dep<X>, Dep<Y>],
+    init: (u: U, v: V, w: W, x: X, y: Y) => T & BunjaValue,
+  ): Bunja<T>;
+  <T, U, V, W, X, Y, Z>(
+    deps: [Dep<U>, Dep<V>, Dep<W>, Dep<X>, Dep<Y>, Dep<Z>],
+    init: (u: U, v: V, w: W, x: X, y: Y, z: Z) => T & BunjaValue,
+  ): Bunja<T>;
+  readonly effect: BunjaEffect;
+} = bunjaImpl;
 
 export function createScope<T>(): Scope<T> {
   return new Scope();
@@ -191,7 +202,7 @@ class BunjaInstance extends RefCounter {
     dispose: () => void,
     public instanceId: string,
     public relatedBunjaInstanceMap: Map<Bunja<any>, BunjaInstance>,
-    public value: BunjaValue
+    public value: BunjaValue,
   ) {
     super();
     this.#dispose = () => {
@@ -214,7 +225,7 @@ class ScopeInstance extends RefCounter {
     public dispose: () => void,
     public instanceId: number,
     public scope: Scope<any>,
-    public value: any
+    public value: any,
   ) {
     super();
   }

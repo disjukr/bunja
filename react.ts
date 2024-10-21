@@ -1,16 +1,18 @@
-import { Context, createContext, useContext, useEffect } from "react";
+import { type Context, createContext, useContext, useEffect } from "react";
 import {
-  Bunja,
+  type Bunja,
+  type BunjaStore,
   createBunjaStore,
   createScope,
-  ReadScope,
-  Scope,
-} from "./bunja";
+  type ReadScope,
+  type Scope,
+} from "./bunja.ts";
 
-export const BunjaStoreContext = createContext(createBunjaStore());
+export const BunjaStoreContext: Context<BunjaStore> =
+  createContext(createBunjaStore());
 
-export const scopeContextMap = new Map<Scope<any>, Context<any>>();
-export function bindScope(scope: Scope<any>, context: Context<any>) {
+export const scopeContextMap: Map<Scope<any>, Context<any>> = new Map();
+export function bindScope(scope: Scope<any>, context: Context<any>): void {
   scopeContextMap.set(scope, context);
 }
 
@@ -25,7 +27,10 @@ const defaultReadScope: ReadScope = (scope) => {
   return useContext(context);
 };
 
-export function useBunja<T>(bunja: Bunja<T>, readScope = defaultReadScope): T {
+export function useBunja<T>(
+  bunja: Bunja<T>,
+  readScope: ReadScope = defaultReadScope,
+): T {
   const store = useContext(BunjaStoreContext);
   const { value, mount, deps } = store.get(bunja, readScope);
   useEffect(mount, deps);
@@ -35,7 +40,7 @@ export function useBunja<T>(bunja: Bunja<T>, readScope = defaultReadScope): T {
 export type ScopePair<T> = [Scope<T>, T];
 
 export function inject<const T extends ScopePair<any>[]>(
-  overrideTable: T
+  overrideTable: T,
 ): ReadScope {
   const map = new Map(overrideTable);
   return (scope) => {
@@ -43,7 +48,7 @@ export function inject<const T extends ScopePair<any>[]>(
     const context = scopeContextMap.get(scope);
     if (!context) {
       throw new Error(
-        "Unable to read the scope. Please inject the value explicitly or bind scope to the React context."
+        "Unable to read the scope. Please inject the value explicitly or bind scope to the React context.",
       );
     }
     return useContext(context);
