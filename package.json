@@ -3,11 +3,11 @@
   "version": "0.0.12",
   "description": "State Lifetime Manager",
   "main": "bunja.ts",
-  "scripts": {},
-  "keywords": [
-    "bunja",
-    "di"
-  ],
+  "scripts": {
+    "check": "biome check",
+    "fix": "biome check --fix"
+  },
+  "keywords": ["bunja", "di"],
   "author": "JongChan Choi <jong@chan.moe>",
   "license": "Zlib",
   "devDependencies": {

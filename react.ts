@@ -1,10 +1,10 @@
 import { Context, createContext, useContext, useEffect } from "react";
 import {
   Bunja,
-  createBunjaStore,
-  createScope,
   ReadScope,
   Scope,
+  createBunjaStore,
+  createScope,
 } from "./bunja";
 
 export const BunjaStoreContext = createContext(createBunjaStore());
@@ -35,7 +35,7 @@ export function useBunja<T>(bunja: Bunja<T>, readScope = defaultReadScope): T {
 export type ScopePair<T> = [Scope<T>, T];
 
 export function inject<const T extends ScopePair<any>[]>(
-  overrideTable: T
+  overrideTable: T,
 ): ReadScope {
   const map = new Map(overrideTable);
   return (scope) => {
@@ -43,7 +43,7 @@ export function inject<const T extends ScopePair<any>[]>(
     const context = scopeContextMap.get(scope);
     if (!context) {
       throw new Error(
-        "Unable to read the scope. Please inject the value explicitly or bind scope to the React context."
+        "Unable to read the scope. Please inject the value explicitly or bind scope to the React context.",
       );
     }
     return useContext(context);

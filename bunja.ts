@@ -9,7 +9,7 @@ export class Bunja<T> {
     public parents: Bunja<any>[], // one depth parents
     public relatedBunjas: Bunja<any>[], // toposorted parents without self
     public relatedScopes: Scope<any>[], // deduped
-    public init: (...args: any[]) => T & BunjaValue
+    public init: (...args: any[]) => T & BunjaValue,
   ) {
     this.id = Bunja.bunjas.length;
     Bunja.bunjas.push(this);
@@ -45,7 +45,7 @@ export class BunjaStore {
       bunja.relatedScopes.map((scope) => [
         scope,
         this.#getScopeInstance(scope, readScope(scope)),
-      ])
+      ]),
     );
     const bunjaInstance = this.#getBunjaInstance(bunja, scopeInstanceMap);
     const { relatedBunjaInstanceMap } = bunjaInstance; // toposorted
@@ -67,10 +67,10 @@ export class BunjaStore {
   }
   #getBunjaInstance(
     bunja: Bunja<any>,
-    scopeInstanceMap: Map<Scope<any>, ScopeInstance>
+    scopeInstanceMap: Map<Scope<any>, ScopeInstance>,
   ): BunjaInstance {
     const localScopeInstanceMap = new Map(
-      bunja.relatedScopes.map((scope) => [scope, scopeInstanceMap.get(scope)!])
+      bunja.relatedScopes.map((scope) => [scope, scopeInstanceMap.get(scope)!]),
     );
     const scopeInstanceIds = Array.from(localScopeInstanceMap.values())
       .map(({ instanceId }) => instanceId)
@@ -81,7 +81,7 @@ export class BunjaStore {
       bunja.relatedBunjas.map((relatedBunja) => [
         relatedBunja,
         this.#getBunjaInstance(relatedBunja, scopeInstanceMap),
-      ])
+      ]),
     );
     const args = bunja.deps.map((dep) => {
       if (dep instanceof Bunja) return relatedBunjaInstanceMap.get(dep)!.value;
@@ -92,7 +92,7 @@ export class BunjaStore {
       () => delete this.#bunjas[bunjaInstanceId],
       bunjaInstanceId,
       relatedBunjaInstanceMap,
-      bunja.init.apply(bunja, args)
+      bunja.init.apply(bunja, args),
     );
     this.#bunjas[bunjaInstanceId] = bunjaInstance;
     return bunjaInstance;
@@ -105,7 +105,7 @@ export class BunjaStore {
         () => scopeInstanceMap.delete(value),
         ScopeInstance.counter++,
         scope,
-        value
+        value,
       );
     return (
       scopeInstanceMap.get(value) ??
@@ -124,37 +124,37 @@ export interface BunjaValue {
 export function bunja<T>(deps: [], init: () => T & BunjaValue): Bunja<T>;
 export function bunja<T, U>(
   deps: [Dep<U>],
-  init: (u: U) => T & BunjaValue
+  init: (u: U) => T & BunjaValue,
 ): Bunja<T>;
 export function bunja<T, U, V>(
   deps: [Dep<U>, Dep<V>],
-  init: (u: U, v: V) => T & BunjaValue
+  init: (u: U, v: V) => T & BunjaValue,
 ): Bunja<T>;
 export function bunja<T, U, V, W>(
   deps: [Dep<U>, Dep<V>, Dep<W>],
-  init: (u: U, v: V, w: W) => T & BunjaValue
+  init: (u: U, v: V, w: W) => T & BunjaValue,
 ): Bunja<T>;
 export function bunja<T, U, V, W, X>(
   deps: [Dep<U>, Dep<V>, Dep<W>, Dep<X>],
-  init: (u: U, v: V, w: W, x: X) => T & BunjaValue
+  init: (u: U, v: V, w: W, x: X) => T & BunjaValue,
 ): Bunja<T>;
 export function bunja<T, U, V, W, X, Y>(
   deps: [Dep<U>, Dep<V>, Dep<W>, Dep<X>, Dep<Y>],
-  init: (u: U, v: V, w: W, x: X, y: Y) => T & BunjaValue
+  init: (u: U, v: V, w: W, x: X, y: Y) => T & BunjaValue,
 ): Bunja<T>;
 export function bunja<T, U, V, W, X, Y, Z>(
   deps: [Dep<U>, Dep<V>, Dep<W>, Dep<X>, Dep<Y>, Dep<Z>],
-  init: (u: U, v: V, w: W, x: X, y: Y, z: Z) => T & BunjaValue
+  init: (u: U, v: V, w: W, x: X, y: Y, z: Z) => T & BunjaValue,
 ): Bunja<T>;
 export function bunja<T, const U extends any[]>(
   deps: { [K in keyof U]: Dep<U[K]> },
-  init: (...args: U) => T & BunjaValue
+  init: (...args: U) => T & BunjaValue,
 ): Bunja<T> {
   const parents = deps.filter((dep) => dep instanceof Bunja) as Bunja<any>[];
   const scopes = deps.filter((dep) => dep instanceof Scope) as Scope<any>[];
   const relatedBunjas = toposort(parents);
   const relatedScopes = Array.from(
-    new Set([...scopes, ...parents.flatMap((parent) => parent.relatedScopes)])
+    new Set([...scopes, ...parents.flatMap((parent) => parent.relatedScopes)]),
   );
   return new Bunja(deps, parents, relatedBunjas, relatedScopes, init as any);
 }
@@ -191,7 +191,7 @@ class BunjaInstance extends RefCounter {
     dispose: () => void,
     public instanceId: string,
     public relatedBunjaInstanceMap: Map<Bunja<any>, BunjaInstance>,
-    public value: BunjaValue
+    public value: BunjaValue,
   ) {
     super();
     this.#dispose = () => {
@@ -214,7 +214,7 @@ class ScopeInstance extends RefCounter {
     public dispose: () => void,
     public instanceId: number,
     public scope: Scope<any>,
-    public value: any
+    public value: any,
   ) {
     super();
   }
