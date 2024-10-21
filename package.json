@@ -1,9 +1,47 @@
 {
   "name": "bunja",
+  "type": "module",
   "version": "0.0.12",
   "description": "State Lifetime Manager",
-  "main": "bunja.ts",
-  "scripts": {},
+  "main": "dist/bunja.cjs",
+  "module": "dist/bunja.js",
+  "types": "dist/bunja.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/bunja.d.ts",
+        "default": "./dist/bunja.js"
+      },
+      "require": {
+        "types": "./dist/bunja.d.cts",
+        "default": "./dist/bunja.cjs"
+      }
+    },
+    "./react": {
+      "import": {
+        "types": "./dist/react.d.ts",
+        "default": "./dist/react.js"
+      },
+      "require": {
+        "types": "./dist/react.d.cts",
+        "default": "./dist/react.cjs"
+      }
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "react": [
+        "./dist/react.d.ts"
+      ],
+      "*": [
+        "./dist/bunja.d.ts"
+      ]
+    }
+  },
+  "scripts": {
+    "build": "tsdown",
+    "check": "tsc --noEmit"
+  },
   "keywords": [
     "bunja",
     "di"
@@ -12,7 +50,9 @@
   "license": "Zlib",
   "devDependencies": {
     "@types/react": "^18",
-    "react": "^18"
+    "react": "^18",
+    "tsdown": "^0.2.17",
+    "typescript": "^5.6.3"
   },
   "peerDependencies": {
     "@types/react": "*",

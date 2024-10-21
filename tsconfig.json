@@ -2,6 +2,12 @@
   "compilerOptions": {
     "target": "ESNext",
     "strict": true,
-    "moduleResolution": "Node"
+    "moduleResolution": "Bundler",
+    "allowImportingTsExtensions": true,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "isolatedDeclarations": true,
+    "skipLibCheck": true,
+    "outDir": "dist"
   }
 }
