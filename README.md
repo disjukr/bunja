@@ -196,6 +196,31 @@ function ChildComponent() {
 }
 ```
 
+You can use the `createScopeFromContext` function to handle both the creation of the scope and the binding to the context in one step.
+
+```ts
+import { createContext } from "react";
+import { createScopeFromContext } from "bunja/react";
+
+const UrlContext = createContext("https://example.com/");
+const UrlScope = createScopeFromContext(UrlContext);
+```
+
 #### Injecting dependencies directly into the scope
 
-TODO
+You might want to use a bunja directly within a React component where the values to be injected into the scope are created.
+
+In such cases, you can use the inject function to inject values into the scope without wrapping the context separately.
+
+```tsx
+import { inject } from "bunja/react";
+
+function MyComponent() {
+  const { queryAtom } = useBunja(
+    fetchBunja,
+    inject([[UrlScope, "https://example.com/"]])
+  );
+  const { data, isPending, isError } = useAtomValue(queryAtom);
+  // Your component logic here
+}
+```
