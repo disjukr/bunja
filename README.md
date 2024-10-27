@@ -57,4 +57,86 @@ function MyComponent() {
 }
 ```
 
-TODO: context
+### Defining a Bunja that relies on other Bunja
+
+If you want to manage a state with a broad lifetime and another state with a narrower lifetime, you can create a (narrower) bunja that depends on a (broader) bunja.
+For example, you can think of a bunja that manages the WebSocket connection and disconnection, and another bunja that subscribes to a specific resource over the connected WebSocket.
+
+In an application composed of multiple pages, you might want to subscribe to the Foo resource on page A and the Bar resource on page B, while using the same WebSocket connection regardless of which page you're on.
+In such a case, you can write the following code.
+
+```ts
+import { bunja } from "bunja";
+import { useBunja } from "bunja/react";
+
+// To simplify the example, code for buffering and reconnection has been omitted.
+const websocketBunja = bunja([], () => {
+  let socket;
+  const send = (message) => socket.send(JSON.stringify(message));
+
+  const emitter = new EventEmitter();
+  const on = (handler) => {
+    emitter.on("message", handler);
+    return () => emitter.off("message", handler);
+  };
+
+  return {
+    send,
+    on,
+    [bunja.effect]() {
+      socket = new WebSocket("...");
+      socket.onmessage = (e) => emitter.emit("message", JSON.parse(e.data));
+      return () => socket.close();
+    },
+  };
+});
+
+const resourceFooBunja = bunja([websocketBunja], ({ send, on }) => {
+  const resourceFooAtom = atom();
+  return {
+    resourceFooAtom,
+    [bunja.effect]() {
+      const off = on((message) => {
+        if (message.type === "foo") store.set(resourceAtom, message.value);
+      });
+      send("subscribe-foo");
+      return () => {
+        send("unsubscribe-foo");
+        off();
+      };
+    },
+  };
+});
+
+const resourceBarBunja = bunja([websocketBunja], ({ send, on }) => {
+  const resourceBarAtom = atom();
+  // ...
+});
+
+function PageA() {
+  const { resourceFooAtom } = useBunja(resourceFooBunja);
+  const resourceFoo = useAtomValue(resourceFooAtom);
+  // ...
+}
+
+function PageB() {
+  const { resourceBarAtom } = useBunja(resourceBarBunja);
+  const resourceBar = useAtomValue(resourceBarAtom);
+  // ...
+}
+```
+
+Notice that `websocketBunja` is not directly `useBunja`-ed.
+When you `useBunja` either `resourceFooBunja` or `resourceBarBunja`, since they depend on `websocketBunja`,
+it has the same effect as if `websocketBunja` were also `useBunja`-ed.
+
+> [!NOTE]
+> When a bunja starts, the initialization effect of the bunja with a broader lifetime is called first.
+> Similarly, when a bunja ends, the cleanup effect of the bunja with the broader lifetime is called first.
+> This behavior is aligned with how React's `useEffect` cleanup function is invoked, where the parent’s cleanup is executed before the child’s in the render tree.
+>
+> See: <https://github.com/facebook/react/issues/16728>
+
+### Dependency injection using Scope
+
+TODO
