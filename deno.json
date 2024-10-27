@@ -1,4 +1,7 @@
 {
+  "name": "@disjukr/bunja",
+  "version": "0.1.0",
+  "license": "Zlib",
   "exports": {
     ".": "./bunja.ts",
     "./react": "./react.ts"
