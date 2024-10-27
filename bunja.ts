@@ -210,7 +210,7 @@ class BunjaInstance extends RefCounter {
       dispose();
     };
   }
-  add() {
+  override add() {
     this.#cleanup ??= this.value[Bunja.effect]?.() ?? noop;
     super.add();
   }
