@@ -66,9 +66,6 @@ In an application composed of multiple pages, you might want to subscribe to the
 In such a case, you can write the following code.
 
 ```ts
-import { bunja } from "bunja";
-import { useBunja } from "bunja/react";
-
 // To simplify the example, code for buffering and reconnection has been omitted.
 const websocketBunja = bunja([], () => {
   let socket;
@@ -131,12 +128,74 @@ When you `useBunja` either `resourceFooBunja` or `resourceBarBunja`, since they 
 it has the same effect as if `websocketBunja` were also `useBunja`-ed.
 
 > [!NOTE]
-> When a bunja starts, the initialization effect of the bunja with a broader lifetime is called first.
-> Similarly, when a bunja ends, the cleanup effect of the bunja with the broader lifetime is called first.
+> When a bunja starts, the initialization effect of the bunja with a broader lifetime is called first.\
+> Similarly, when a bunja ends, the cleanup effect of the bunja with the broader lifetime is called first.\
 > This behavior is aligned with how React's `useEffect` cleanup function is invoked, where the parent’s cleanup is executed before the child’s in the render tree.
 >
 > See: <https://github.com/facebook/react/issues/16728>
 
 ### Dependency injection using Scope
+
+You can use a bunja for local state management.\
+When you specify a scope as a dependency of the bunja, separate bunja instances are created based on the values injected into the scope.
+
+```ts
+import { bunja, createScope } from "bunja";
+
+const UrlScope = createScope();
+
+const fetchBunja = bunja([UrlScope], (url) => {
+  const queryAtom = atomWithQuery((get) => ({
+    queryKey: [url],
+    queryFn: async () => (await fetch(url)).json(),
+  }));
+  return { queryAtom };
+});
+```
+
+#### Injecting dependencies via React context
+
+If you bind a scope to a React context, bunjas that depend on the scope can retrieve values from the corresponding React context.
+
+In the example below, there are two React instances (`<ChildComponent />`) that reference the same `fetchBunja`, but since each looks at a different context value, two separate bunja instances are also created.
+
+```tsx
+import { createContext } from "react";
+import { bunja, createScope } from "bunja";
+import { bindScope } from "bunja/react";
+
+const UrlContext = createContext("https://example.com/");
+const UrlScope = createScope();
+bindScope(UrlScope, UrlContext);
+
+const fetchBunja = bunja([UrlScope], (url) => {
+  const queryAtom = atomWithQuery((get) => ({
+    queryKey: [url],
+    queryFn: async () => (await fetch(url)).json(),
+  }));
+  return { queryAtom };
+});
+
+function ParentComponent() {
+  return (
+    <>
+      <UrlContext.Provider value="https://example.com/foo">
+        <ChildComponent />
+      </UrlContext.Provider>
+      <UrlContext.Provider value="https://example.com/bar">
+        <ChildComponent />
+      </UrlContext.Provider>
+    </>
+  );
+}
+
+function ChildComponent() {
+  const { queryAtom } = useBunja(fetchBunja);
+  const { data, isPending, isError } = useAtomValue(queryAtom);
+  // Your component logic here
+}
+```
+
+#### Injecting dependencies directly into the scope
 
 TODO
