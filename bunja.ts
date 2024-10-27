@@ -108,8 +108,8 @@ export class BunjaStore {
     return bunjaInstance;
   }
   #getScopeInstance(scope: Scope<any>, value: any): ScopeInstance {
-    const scopeInstanceMap =
-      this.#scopes.get(scope) ?? this.#scopes.set(scope, new Map()).get(scope)!;
+    const scopeInstanceMap = this.#scopes.get(scope) ??
+      this.#scopes.set(scope, new Map()).get(scope)!;
     const init = () =>
       new ScopeInstance(
         () => scopeInstanceMap.delete(value),
@@ -119,7 +119,7 @@ export class BunjaStore {
       );
     return (
       scopeInstanceMap.get(value) ??
-      scopeInstanceMap.set(value, init()).get(value)!
+        scopeInstanceMap.set(value, init()).get(value)!
     );
   }
 }

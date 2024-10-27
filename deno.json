@@ -1,0 +1,6 @@
+{
+  "exports": {
+    ".": "./bunja.ts",
+    "./react": "./react.ts"
+  }
+}
