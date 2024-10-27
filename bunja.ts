@@ -18,7 +18,7 @@ export class Bunja<T> {
     Bunja.bunjas.push(this);
   }
   static readonly effect: BunjaEffectSymbol = bunjaEffectSymbol;
-  toString() {
+  toString(): string {
     const { id, debugLabel } = this;
     return `[Bunja:${id}${debugLabel && ` - ${debugLabel}`}]`;
   }
@@ -32,7 +32,7 @@ export class Scope<T> {
     this.id = Scope.scopes.length;
     Scope.scopes.push(this);
   }
-  toString() {
+  toString(): string {
     const { id, debugLabel } = this;
     return `[Scope:${id}${debugLabel && ` - ${debugLabel}`}]`;
   }
