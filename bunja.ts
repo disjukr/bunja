@@ -48,7 +48,7 @@ export class BunjaStore {
     readScope: ReadScope,
   ): {
     value: T;
-    mount: () => void;
+    mount: () => () => void;
     deps: any[];
   } {
     const scopeInstanceMap = new Map(
