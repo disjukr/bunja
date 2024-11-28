@@ -2,7 +2,7 @@ import { assertEquals } from "jsr:@std/assert";
 import { assertSpyCalls, spy } from "jsr:@std/testing/mock";
 import { FakeTime } from "jsr:@std/testing/time";
 
-import { createBunjaStore } from "./bunja.ts";
+import { createBunjaStore, createScope } from "./bunja.ts";
 import { bunja } from "./bunja.ts";
 
 const readNull = () => (null as any);
@@ -154,5 +154,21 @@ Deno.test({
     time.tick();
     assertSpyCalls(aUnmountSpy, 1);
     assertSpyCalls(bUnmountSpy, 1);
+  },
+});
+
+Deno.test({
+  name: "injecting values into a scope when calling store.get",
+  fn() {
+    using time = new FakeTime();
+    const store = createBunjaStore();
+    const myScope = createScope<string>();
+    const myBunja = bunja([myScope], (scopeValue) => ({ scopeValue }));
+    const readScope = <T>(): T => "injected value" as T;
+    const { value: { scopeValue }, mount } = store.get(myBunja, readScope);
+    const cleanup = mount();
+    cleanup();
+    assertEquals(scopeValue, "injected value");
+    time.tick();
   },
 });
