@@ -172,3 +172,35 @@ Deno.test({
     time.tick();
   },
 });
+
+Deno.test({
+  name: "scope value deduplication using hash function",
+  fn() {
+    using time = new FakeTime();
+    const store = createBunjaStore();
+    const myScope = createScope<string>(({ length }) => length);
+    const myBunja = bunja([myScope], (scopeValue) => ({ scopeValue }));
+    const { value: { scopeValue: scopeValue1 }, mount: mount1 } = store.get(
+      myBunja,
+      <T>() => "foo" as T,
+    );
+    const cleanup1 = mount1();
+    const { value: { scopeValue: scopeValue2 }, mount: mount2 } = store.get(
+      myBunja,
+      <T>() => "bar" as T,
+    );
+    const cleanup2 = mount2();
+    const { value: { scopeValue: scopeValue3 }, mount: mount3 } = store.get(
+      myBunja,
+      <T>() => "baaz" as T,
+    );
+    const cleanup3 = mount3();
+    assertEquals(scopeValue1, "foo");
+    assertEquals(scopeValue2, "foo");
+    assertEquals(scopeValue3, "baaz");
+    cleanup1();
+    cleanup2();
+    cleanup3();
+    time.tick();
+  },
+});
