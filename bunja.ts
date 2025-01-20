@@ -24,11 +24,13 @@ export class Bunja<T> {
   }
 }
 
+export type HashFn<T = any, U = any> = (value: T) => U;
+
 export class Scope<T> {
   public static readonly scopes: Scope<any>[] = [];
   public readonly id: number;
   public debugLabel: string = "";
-  constructor() {
+  constructor(public readonly hash: HashFn = id) {
     this.id = Scope.scopes.length;
     Scope.scopes.push(this);
   }
@@ -108,18 +110,19 @@ export class BunjaStore {
     return bunjaInstance;
   }
   #getScopeInstance(scope: Scope<any>, value: any): ScopeInstance {
+    const key = scope.hash(value);
     const scopeInstanceMap = this.#scopes.get(scope) ??
       this.#scopes.set(scope, new Map()).get(scope)!;
     const init = () =>
       new ScopeInstance(
-        () => scopeInstanceMap.delete(value),
+        () => scopeInstanceMap.delete(key),
         ScopeInstance.counter++,
         scope,
         value,
       );
     return (
-      scopeInstanceMap.get(value) ??
-        scopeInstanceMap.set(value, init()).get(value)!
+      scopeInstanceMap.get(key) ??
+        scopeInstanceMap.set(key, init()).get(key)!
     );
   }
 }
@@ -171,8 +174,8 @@ export const bunja: {
   readonly effect: BunjaEffectSymbol;
 } = bunjaImpl;
 
-export function createScope<T>(): Scope<T> {
-  return new Scope();
+export function createScope<T>(hash?: HashFn): Scope<T> {
+  return new Scope(hash);
 }
 
 abstract class RefCounter {
@@ -194,6 +197,7 @@ abstract class RefCounter {
   abstract dispose(): void;
 }
 
+const id = <T>(x: T): T => x;
 const noop = () => {};
 class BunjaInstance extends RefCounter {
   #cleanup: (() => void) | undefined;

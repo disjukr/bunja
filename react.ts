@@ -4,20 +4,25 @@ import {
   type BunjaStore,
   createBunjaStore,
   createScope,
+  type HashFn,
   type ReadScope,
   type Scope,
 } from "./bunja.ts";
 
-export const BunjaStoreContext: Context<BunjaStore> =
-  createContext(createBunjaStore());
+export const BunjaStoreContext: Context<BunjaStore> = createContext(
+  createBunjaStore(),
+);
 
 export const scopeContextMap: Map<Scope<any>, Context<any>> = new Map();
 export function bindScope(scope: Scope<any>, context: Context<any>): void {
   scopeContextMap.set(scope, context);
 }
 
-export function createScopeFromContext<T>(context: Context<T>): Scope<T> {
-  const scope = createScope();
+export function createScopeFromContext<T>(
+  context: Context<T>,
+  hash?: HashFn<T>,
+): Scope<T> {
+  const scope = createScope(hash);
   bindScope(scope, context);
   return scope;
 }
