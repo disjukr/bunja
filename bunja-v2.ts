@@ -201,6 +201,10 @@ export class Bunja<T> {
   get baked(): boolean {
     return this.#phase.baked;
   }
+  get parents(): Bunja<unknown>[] {
+    if (this.#phase.baked) return this.#phase.parents;
+    return Array.from(this.#phase.parents);
+  }
   get relatedBunjas(): Bunja<unknown>[] {
     if (!this.#phase.baked) throw new Error("Bunja is not baked yet.");
     return this.#phase.relatedBunjas;
@@ -220,6 +224,7 @@ export class Bunja<T> {
   bake(): void {
     this.#phase = {
       baked: true,
+      parents: this.parents,
       relatedBunjas: [], // TODO: toposort parents
       relatedScopes: [], // TODO
     };
@@ -242,15 +247,16 @@ export class Bunja<T> {
 type BunjaPhase = BunjaPhaseUnknown | BunjaPhaseKnown;
 
 interface BunjaPhaseUnknown {
-  baked: false;
-  parents: Set<Bunja<unknown>>;
-  scopes: Set<Scope<unknown>>;
+  readonly baked: false;
+  readonly parents: Set<Bunja<unknown>>;
+  readonly scopes: Set<Scope<unknown>>;
 }
 
 interface BunjaPhaseKnown {
-  baked: true;
-  relatedBunjas: Bunja<unknown>[];
-  relatedScopes: Scope<unknown>[];
+  readonly baked: true;
+  readonly parents: Bunja<unknown>[];
+  readonly relatedBunjas: Bunja<unknown>[];
+  readonly relatedScopes: Scope<unknown>[];
 }
 
 export class Scope<T> {
