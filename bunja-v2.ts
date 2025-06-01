@@ -222,12 +222,17 @@ export class Bunja<T> {
     this.#phase.scopes.add(scope);
   }
   bake(): void {
-    this.#phase = {
-      baked: true,
-      parents: this.parents,
-      relatedBunjas: [], // TODO: toposort parents
-      relatedScopes: [], // TODO
-    };
+    if (this.#phase.baked) throw new Error("Bunja is already baked.");
+    const scopes = this.#phase.scopes;
+    const parents = this.parents;
+    const relatedBunjas = toposort(parents);
+    const relatedScopes = Array.from(
+      new Set([
+        ...relatedBunjas.flatMap((bunja) => bunja.relatedScopes),
+        ...scopes,
+      ]),
+    );
+    this.#phase = { baked: true, parents, relatedBunjas, relatedScopes };
   }
   static calcInstanceId(
     bunja: Bunja<unknown>,
@@ -281,4 +286,20 @@ class ScopeInstance {
   private static counter = 0;
   readonly id: string = String(ScopeInstance.counter++);
   constructor(public readonly value: unknown) {}
+}
+
+interface Toposortable {
+  parents: Toposortable[];
+}
+function toposort<T extends Toposortable>(nodes: T[]): T[] {
+  const visited = new Set<T>();
+  const result: T[] = [];
+  function visit(current: T) {
+    if (visited.has(current)) return;
+    visited.add(current);
+    for (const parent of current.parents) visit(parent as T);
+    result.push(current);
+  }
+  for (const node of nodes) visit(node);
+  return result;
 }
