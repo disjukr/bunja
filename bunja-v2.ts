@@ -120,21 +120,21 @@ export class BunjaStore {
     const originalEffect = bunjaFn.effect;
     const prevBunja = this.#bakingContext?.currentBunja;
     try {
-      const effectCallbacks: BunjaEffectCallback[] = [];
+      const effects: BunjaEffectCallback[] = [];
       bunjaFn.effect = (callback: BunjaEffectCallback) => {
-        effectCallbacks.push(callback);
+        effects.push(callback);
       };
       if (this.#bakingContext) this.#bakingContext.currentBunja = bunja;
       if (bunja.baked) {
         const id = this.#calcBunjaInstanceId(bunja, readScope);
         if (id in this.#bunjas) return this.#bunjas[id];
         const bunjaInstanceValue = bunja.init();
-        return this.#createBunjaInstance(id, bunjaInstanceValue);
+        return this.#createBunjaInstance(id, bunjaInstanceValue, effects);
       } else {
         const bunjaInstanceValue = bunja.init();
         bunja.bake();
         const id = this.#calcBunjaInstanceId(bunja, readScope);
-        return this.#createBunjaInstance(id, bunjaInstanceValue);
+        return this.#createBunjaInstance(id, bunjaInstanceValue, effects);
       }
     } finally {
       bunjaFn.effect = originalEffect;
@@ -152,8 +152,17 @@ export class BunjaStore {
       ).get(key)!;
     return this.#scopes[scopeId];
   }
-  #createBunjaInstance(id: string, value: unknown): BunjaInstance {
-    const bunjaInstance = new BunjaInstance(id, value);
+  #createBunjaInstance(
+    id: string,
+    value: unknown,
+    effects: BunjaEffectCallback[],
+  ): BunjaInstance {
+    const bunjaInstance = new BunjaInstance(id, value, () => {
+      const cleanups = effects
+        .map((effect) => effect())
+        .filter(Boolean) as (() => void)[];
+      return () => cleanups.forEach((cleanup) => cleanup());
+    });
     this.#bunjas[id] = bunjaInstance;
     return bunjaInstance;
   }
@@ -279,7 +288,11 @@ export class Scope<T> {
 export type HashFn<T = unknown, U = unknown> = (value: T) => U;
 
 class BunjaInstance {
-  constructor(public readonly id: string, public readonly value: unknown) {}
+  constructor(
+    public readonly id: string,
+    public readonly value: unknown,
+    public readonly effectCallback: BunjaEffectCallback,
+  ) {}
 }
 
 class ScopeInstance {
