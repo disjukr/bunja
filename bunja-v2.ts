@@ -157,17 +157,20 @@ export class BunjaStore {
     value: unknown,
     effects: BunjaEffectCallback[],
   ): BunjaInstance {
-    const bunjaInstance = new BunjaInstance(id, value, () => {
+    const effect = () => {
       const cleanups = effects
         .map((effect) => effect())
         .filter(Boolean) as (() => void)[];
       return () => cleanups.forEach((cleanup) => cleanup());
-    });
+    };
+    const dispose = () => delete this.#bunjas[id];
+    const bunjaInstance = new BunjaInstance(id, value, effect, dispose);
     this.#bunjas[id] = bunjaInstance;
     return bunjaInstance;
   }
   #createScopeInstance(scope: Scope<unknown>, value: unknown): ScopeInstance {
-    const scopeInstance = new ScopeInstance(value);
+    const dispose = () => delete this.#scopes[scope.id];
+    const scopeInstance = new ScopeInstance(value, dispose);
     this.#scopes[scope.id] = scopeInstance;
     return scopeInstance;
   }
@@ -287,18 +290,43 @@ export class Scope<T> {
 
 export type HashFn<T = unknown, U = unknown> = (value: T) => U;
 
-class BunjaInstance {
+abstract class RefCounter {
+  #disposed = false;
+  #count = 0;
+  abstract readonly dispose: () => void;
+  add() {
+    ++this.#count;
+  }
+  sub() {
+    if (this.#disposed) throw new Error("Cannot sub after disposed.");
+    --this.#count;
+    if (this.#count < 1) {
+      this.#disposed = true;
+      this.dispose();
+    }
+  }
+}
+
+class BunjaInstance extends RefCounter {
   constructor(
     public readonly id: string,
     public readonly value: unknown,
-    public readonly effectCallback: BunjaEffectCallback,
-  ) {}
+    public readonly effect: BunjaEffectCallback,
+    public readonly dispose: () => void,
+  ) {
+    super();
+  }
 }
 
-class ScopeInstance {
+class ScopeInstance extends RefCounter {
   private static counter = 0;
   readonly id: string = String(ScopeInstance.counter++);
-  constructor(public readonly value: unknown) {}
+  constructor(
+    public readonly value: unknown,
+    public readonly dispose: () => void,
+  ) {
+    super();
+  }
 }
 
 interface Toposortable {
