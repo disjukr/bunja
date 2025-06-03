@@ -1,3 +1,10 @@
+> [!WARNING]
+> You are viewing the `v2` branch.
+>
+> The current stable version is `1.x.x`.\
+> If you want to view the code for that version,
+> please [switch to the `v1` branch](https://github.com/disjukr/bunja/tree/v1).
+
 # Bunja
 
 Bunja is lightweight State Lifetime Manager.\
@@ -33,21 +40,21 @@ You can use `bunja` to define a state with a finite lifetime and use the `useBun
 You can define a bunja using the `bunja` function. When you access the defined bunja with the `useBunja` hook, a bunja instance is created.\
 If all components in the render tree that refer to the bunja disappear, the bunja instance is automatically destroyed.
 
-If you want to trigger effects when the lifetime of a bunja starts and ends, you can use the `bunja.effect` field.
+If you want to trigger effects when the lifetime of a bunja starts and ends, you can use the `bunja.effect` function.
 
 ```ts
 import { bunja } from "bunja";
 import { useBunja } from "bunja/react";
 
-const countBunja = bunja([], () => {
+const countBunja = bunja(() => {
   const countAtom = atom(0);
-  return {
-    countAtom,
-    [bunja.effect]() {
-      console.log("mounted");
-      return () => console.log("unmounted");
-    },
-  };
+
+  bunja.effect(() => {
+    console.log("mounted");
+    return () => console.log("unmounted");
+  });
+
+  return { countAtom };
 });
 
 function MyComponent() {
@@ -67,7 +74,7 @@ In such a case, you can write the following code.
 
 ```ts
 // To simplify the example, code for buffering and reconnection has been omitted.
-const websocketBunja = bunja([], () => {
+const websocketBunja = bunja(() => {
   let socket;
   const send = (message) => socket.send(JSON.stringify(message));
 
@@ -77,35 +84,35 @@ const websocketBunja = bunja([], () => {
     return () => emitter.off("message", handler);
   };
 
-  return {
-    send,
-    on,
-    [bunja.effect]() {
-      socket = new WebSocket("...");
-      socket.onmessage = (e) => emitter.emit("message", JSON.parse(e.data));
-      return () => socket.close();
-    },
-  };
+  bunja.effect(() => {
+    socket = new WebSocket("...");
+    socket.onmessage = (e) => emitter.emit("message", JSON.parse(e.data));
+    return () => socket.close();
+  });
+
+  return { send, on };
 });
 
-const resourceFooBunja = bunja([websocketBunja], ({ send, on }) => {
+const resourceFooBunja = bunja(() => {
+  const { send, on } = bunja.use(websocketBunja);
   const resourceFooAtom = atom();
-  return {
-    resourceFooAtom,
-    [bunja.effect]() {
-      const off = on((message) => {
-        if (message.type === "foo") store.set(resourceAtom, message.value);
-      });
-      send("subscribe-foo");
-      return () => {
-        send("unsubscribe-foo");
-        off();
-      };
-    },
-  };
+
+  bunja.effect(() => {
+    const off = on((message) => {
+      if (message.type === "foo") store.set(resourceAtom, message.value);
+    });
+    send("subscribe-foo");
+    return () => {
+      send("unsubscribe-foo");
+      off();
+    };
+  });
+
+  return { resourceFooAtom };
 });
 
-const resourceBarBunja = bunja([websocketBunja], ({ send, on }) => {
+const resourceBarBunja = bunja(() => {
+  const { send, on } = bunja.use(websocketBunja);
   const resourceBarAtom = atom();
   // ...
 });
@@ -144,11 +151,14 @@ import { bunja, createScope } from "bunja";
 
 const UrlScope = createScope();
 
-const fetchBunja = bunja([UrlScope], (url) => {
+const fetchBunja = bunja(() => {
+  const url = bunja.use(UrlScope);
+
   const queryAtom = atomWithQuery((get) => ({
     queryKey: [url],
     queryFn: async () => (await fetch(url)).json(),
   }));
+
   return { queryAtom };
 });
 ```
@@ -168,23 +178,26 @@ const UrlContext = createContext("https://example.com/");
 const UrlScope = createScope();
 bindScope(UrlScope, UrlContext);
 
-const fetchBunja = bunja([UrlScope], (url) => {
+const fetchBunja = bunja(() => {
+  const url = bunja.use(UrlScope);
+
   const queryAtom = atomWithQuery((get) => ({
     queryKey: [url],
     queryFn: async () => (await fetch(url)).json(),
   }));
+
   return { queryAtom };
 });
 
 function ParentComponent() {
   return (
     <>
-      <UrlContext.Provider value="https://example.com/foo">
+      <UrlContext value="https://example.com/foo">
         <ChildComponent />
-      </UrlContext.Provider>
-      <UrlContext.Provider value="https://example.com/bar">
+      </UrlContext>
+      <UrlContext value="https://example.com/bar">
         <ChildComponent />
-      </UrlContext.Provider>
+      </UrlContext>
     </>
   );
 }
