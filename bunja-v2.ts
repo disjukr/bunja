@@ -33,9 +33,12 @@ const bunjaFn = bunja;
 
 interface BunjaStoreGetContext {
   bunjaInstance: BunjaInstance;
-  bunjaInstanceMap: Map<Bunja<unknown>, BunjaInstance>;
-  scopeInstanceMap: Map<Scope<unknown>, ScopeInstance>;
+  bunjaInstanceMap: BunjaInstanceMap;
+  scopeInstanceMap: ScopeInstanceMap;
 }
+
+type BunjaInstanceMap = Map<Bunja<unknown>, BunjaInstance>;
+type ScopeInstanceMap = Map<Scope<unknown>, ScopeInstance>;
 
 interface BunjaBakingContext {
   currentBunja: Bunja<unknown>;
@@ -49,37 +52,52 @@ export class BunjaStore {
   get<T>(bunja: Bunja<T>, readScope: ReadScope): BunjaStoreGetResult<T> {
     const originalUse = bunjaFn.use;
     try {
-      const { bunjaInstance } = bunja.baked
+      const { bunjaInstance, bunjaInstanceMap, scopeInstanceMap } = bunja.baked
         ? this.#getBaked(bunja, readScope)
         : this.#getUnbaked(bunja, readScope);
       return {
         value: bunjaInstance.value as T,
-        mount: () => () => {}, // TODO
-        deps: [], // TODO
+        mount: () => {
+          bunjaInstanceMap.forEach((instance) => instance.add());
+          bunjaInstance.add();
+          scopeInstanceMap.forEach((instance) => instance.add());
+          const unmount = () => {
+            bunjaInstanceMap.forEach((instance) => instance.sub());
+            bunjaInstance.sub();
+            scopeInstanceMap.forEach((instance) => instance.sub());
+          };
+          return unmount;
+        },
+        deps: Array.from(scopeInstanceMap.values()).map(({ value }) => value),
       };
     } finally {
       bunjaFn.use = originalUse;
     }
   }
   #getBaked<T>(bunja: Bunja<T>, readScope: ReadScope): BunjaStoreGetContext {
+    const scopeInstanceMap = new Map(
+      bunja.relatedScopes.map((scope) => [
+        scope,
+        this.#getScopeInstance(scope, readScope(scope)),
+      ]),
+    );
     const bunjaInstanceMap = new Map(
       bunja.relatedBunjas.map((relatedBunja) => [
         relatedBunja,
-        this.#getBunjaInstance(relatedBunja, readScope),
+        this.#getBunjaInstance(relatedBunja, scopeInstanceMap),
       ]),
     );
-    const scopeInstanceMap = this.#createScopeInstanceMap(bunja, readScope);
     bunjaFn.use = <T>(dep: Dep<T>) => {
       if (dep instanceof Bunja) return bunjaInstanceMap.get(dep)!.value as T;
       if (dep instanceof Scope) return scopeInstanceMap.get(dep)!.value as T;
       throw new Error("`bunja.use` can only be used with Bunja or Scope.");
     };
-    const bunjaInstance = this.#getBunjaInstance(bunja, readScope);
+    const bunjaInstance = this.#getBunjaInstance(bunja, scopeInstanceMap);
     return { bunjaInstance, bunjaInstanceMap, scopeInstanceMap };
   }
   #getUnbaked<T>(bunja: Bunja<T>, readScope: ReadScope): BunjaStoreGetContext {
-    const bunjaInstanceMap = new Map<Bunja<unknown>, BunjaInstance>();
-    const scopeInstanceMap = new Map<Scope<unknown>, ScopeInstance>();
+    const bunjaInstanceMap: BunjaInstanceMap = new Map();
+    const scopeInstanceMap: ScopeInstanceMap = new Map();
     function getUse<D extends Dep<unknown>, I extends { value: unknown }>(
       map: Map<D, I>,
       addDep: (D: D) => void,
@@ -93,15 +111,20 @@ export class BunjaStore {
         return instance.value as T;
       };
     }
-    const useBunja = getUse(
-      bunjaInstanceMap,
-      (dep) => this.#bakingContext!.currentBunja.addParent(dep),
-      (dep) => this.#getBunjaInstance(dep, readScope),
-    );
     const useScope = getUse(
       scopeInstanceMap,
       (dep) => this.#bakingContext!.currentBunja.addScope(dep),
       (dep) => this.#getScopeInstance(dep, readScope(dep)),
+    );
+    const useBunja = getUse(
+      bunjaInstanceMap,
+      (dep) => this.#bakingContext!.currentBunja.addParent(dep),
+      (dep) => {
+        if (dep.baked) {
+          for (const scope of dep.relatedScopes) useScope(scope);
+        }
+        return this.#getBunjaInstance(dep, scopeInstanceMap);
+      },
     );
     bunjaFn.use = <T>(dep: Dep<T>) => {
       if (dep instanceof Bunja) return useBunja(dep) as T;
@@ -110,13 +133,16 @@ export class BunjaStore {
     };
     try {
       this.#bakingContext = { currentBunja: bunja };
-      const bunjaInstance = this.#getBunjaInstance(bunja, readScope);
+      const bunjaInstance = this.#getBunjaInstance(bunja, scopeInstanceMap);
       return { bunjaInstance, bunjaInstanceMap, scopeInstanceMap };
     } finally {
       this.#bakingContext = undefined;
     }
   }
-  #getBunjaInstance<T>(bunja: Bunja<T>, readScope: ReadScope): BunjaInstance {
+  #getBunjaInstance<T>(
+    bunja: Bunja<T>,
+    scopeInstanceMap: ScopeInstanceMap,
+  ): BunjaInstance {
     const originalEffect = bunjaFn.effect;
     const prevBunja = this.#bakingContext?.currentBunja;
     try {
@@ -126,14 +152,14 @@ export class BunjaStore {
       };
       if (this.#bakingContext) this.#bakingContext.currentBunja = bunja;
       if (bunja.baked) {
-        const id = this.#calcBunjaInstanceId(bunja, readScope);
+        const id = bunja.calcInstanceId(scopeInstanceMap);
         if (id in this.#bunjas) return this.#bunjas[id];
         const bunjaInstanceValue = bunja.init();
         return this.#createBunjaInstance(id, bunjaInstanceValue, effects);
       } else {
         const bunjaInstanceValue = bunja.init();
         bunja.bake();
-        const id = this.#calcBunjaInstanceId(bunja, readScope);
+        const id = bunja.calcInstanceId(scopeInstanceMap);
         return this.#createBunjaInstance(id, bunjaInstanceValue, effects);
       }
     } finally {
@@ -173,24 +199,6 @@ export class BunjaStore {
     const scopeInstance = new ScopeInstance(value, dispose);
     this.#scopes[scope.id] = scopeInstance;
     return scopeInstance;
-  }
-  #calcBunjaInstanceId(bunja: Bunja<unknown>, readScope: ReadScope): string {
-    const scopeInstanceMap = this.#createScopeInstanceMap(bunja, readScope);
-    return Bunja.calcInstanceId(bunja, scopeInstanceMap);
-  }
-  #createScopeInstanceMap(
-    bunja: Bunja<unknown>,
-    readScope: ReadScope,
-  ): Map<Scope<unknown>, ScopeInstance> {
-    if (!bunja.baked) {
-      throw new Error("Bunja must be baked to create scope instance map.");
-    }
-    return new Map(
-      bunja.relatedScopes.map((scope) => [
-        scope,
-        this.#getScopeInstance(scope, readScope(scope)),
-      ]),
-    );
   }
 }
 
@@ -246,18 +254,14 @@ export class Bunja<T> {
     );
     this.#phase = { baked: true, parents, relatedBunjas, relatedScopes };
   }
-  static calcInstanceId(
-    bunja: Bunja<unknown>,
-    scopeInstanceMap: Map<Scope<unknown>, ScopeInstance>,
-  ): string {
+  calcInstanceId(scopeInstanceMap: Map<Scope<unknown>, ScopeInstance>): string {
     const localScopeInstanceMap = new Map(
-      bunja.relatedScopes.map((scope) => [scope, scopeInstanceMap.get(scope)!]),
+      this.relatedScopes.map((scope) => [scope, scopeInstanceMap.get(scope)!]),
     );
     const scopeInstanceIds = Array.from(
       localScopeInstanceMap.values(),
     ).map(({ id }) => id);
-    const bunjaInstanceId = `${bunja.id}:${scopeInstanceIds.join(",")}`;
-    return bunjaInstanceId;
+    return `${this.id}:${scopeInstanceIds.join(",")}`;
   }
 }
 
