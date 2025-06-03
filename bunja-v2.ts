@@ -8,7 +8,7 @@ export type BunjaUseFn = <T>(dep: Dep<T>) => T;
 export type BunjaEffectFn = (callback: BunjaEffectCallback) => void;
 export type BunjaEffectCallback = () => (() => void) | void;
 
-export function createScope<T>(hash?: HashFn): Scope<T> {
+export function createScope<T>(hash?: HashFn<T>): Scope<T> {
   return new Scope(hash);
 }
 
@@ -97,8 +97,12 @@ export class BunjaStore {
       ]),
     );
     bunjaFn.use = <T>(dep: Dep<T>) => {
-      if (dep instanceof Bunja) return bunjaInstanceMap.get(dep)!.value as T;
-      if (dep instanceof Scope) return scopeInstanceMap.get(dep)!.value as T;
+      if (dep instanceof Bunja) {
+        return bunjaInstanceMap.get(dep as Bunja<unknown>)!.value as T;
+      }
+      if (dep instanceof Scope) {
+        return scopeInstanceMap.get(dep as Scope<unknown>)!.value as T;
+      }
       throw new Error("`bunja.use` can only be used with Bunja or Scope.");
     };
     const bunjaInstance = this.#getBunjaInstance(bunja, scopeInstanceMap);
@@ -112,13 +116,14 @@ export class BunjaStore {
       addDep: (D: D) => void,
       getInstance: (dep: D) => I,
     ) {
-      return <T>(dep: D): T => {
-        addDep(dep);
-        if (map.has(dep)) return map.get(dep)!.value as T;
-        const instance = getInstance(dep);
-        map.set(dep, instance);
+      return ((dep) => {
+        const d = dep as D;
+        addDep(d);
+        if (map.has(d)) return map.get(d)!.value as T;
+        const instance = getInstance(d);
+        map.set(d, instance);
         return instance.value as T;
-      };
+      }) as <T>(dep: Dep<T>) => T;
     }
     const useScope = getUse(
       scopeInstanceMap,
@@ -288,7 +293,7 @@ export class Scope<T> {
   private static counter = 0;
   readonly id = String(Scope.counter++);
   debugLabel = "";
-  constructor(public readonly hash: HashFn = Scope.identity) {}
+  constructor(public readonly hash: HashFn<T> = Scope.identity) {}
   private static identity<T>(x: T): T {
     return x;
   }
@@ -298,7 +303,7 @@ export class Scope<T> {
   }
 }
 
-export type HashFn<T = unknown, U = unknown> = (value: T) => U;
+export type HashFn<T> = (value: T) => unknown;
 
 const noop = () => {};
 abstract class RefCounter {
