@@ -46,9 +46,16 @@ interface BunjaBakingContext {
 
 export class BunjaStore {
   #bunjas: Record<string, BunjaInstance> = {};
-  #scopes: Record<string, ScopeInstance> = {};
-  #scopeIds: Map<Scope<unknown>, Map<unknown, string>> = new Map();
+  #scopes: Map<Scope<unknown>, Map<unknown, ScopeInstance>> = new Map();
   #bakingContext: BunjaBakingContext | undefined;
+  dispose() {
+    for (const instance of Object.values(this.#bunjas)) instance.dispose();
+    for (const instanceMap of Object.values(this.#scopes)) {
+      for (const instance of instanceMap.values()) instance.dispose();
+    }
+    this.#bunjas = {};
+    this.#scopes = new Map();
+  }
   get<T>(bunja: Bunja<T>, readScope: ReadScope): BunjaStoreGetResult<T> {
     const originalUse = bunjaFn.use;
     try {
@@ -62,9 +69,11 @@ export class BunjaStore {
           bunjaInstance.add();
           scopeInstanceMap.forEach((instance) => instance.add());
           const unmount = () => {
-            bunjaInstanceMap.forEach((instance) => instance.sub());
-            bunjaInstance.sub();
-            scopeInstanceMap.forEach((instance) => instance.sub());
+            setTimeout(() => {
+              bunjaInstanceMap.forEach((instance) => instance.sub());
+              bunjaInstance.sub();
+              scopeInstanceMap.forEach((instance) => instance.sub());
+            });
           };
           return unmount;
         },
@@ -169,14 +178,13 @@ export class BunjaStore {
   }
   #getScopeInstance(scope: Scope<unknown>, value: unknown): ScopeInstance {
     const key = scope.hash(value);
-    const scopeIdByKey = this.#scopeIds.get(scope) ??
-      this.#scopeIds.set(scope, new Map()).get(scope)!;
-    const scopeId = scopeIdByKey.get(key) ??
-      scopeIdByKey.set(
+    const instanceMap = this.#scopes.get(scope) ??
+      this.#scopes.set(scope, new Map()).get(scope)!;
+    return instanceMap.get(key) ??
+      instanceMap.set(
         key,
-        this.#createScopeInstance(scope, value).id,
+        new ScopeInstance(value, () => instanceMap.delete(key)),
       ).get(key)!;
-    return this.#scopes[scopeId];
   }
   #createBunjaInstance(
     id: string,
@@ -193,12 +201,6 @@ export class BunjaStore {
     const bunjaInstance = new BunjaInstance(id, value, effect, dispose);
     this.#bunjas[id] = bunjaInstance;
     return bunjaInstance;
-  }
-  #createScopeInstance(scope: Scope<unknown>, value: unknown): ScopeInstance {
-    const dispose = () => delete this.#scopes[scope.id];
-    const scopeInstance = new ScopeInstance(value, dispose);
-    this.#scopes[scope.id] = scopeInstance;
-    return scopeInstance;
   }
 }
 
@@ -298,31 +300,39 @@ export class Scope<T> {
 
 export type HashFn<T = unknown, U = unknown> = (value: T) => U;
 
+const noop = () => {};
 abstract class RefCounter {
-  #disposed = false;
   #count = 0;
-  abstract readonly dispose: () => void;
+  abstract dispose(): void;
   add() {
     ++this.#count;
   }
   sub() {
-    if (this.#disposed) throw new Error("Cannot sub after disposed.");
     --this.#count;
     if (this.#count < 1) {
-      this.#disposed = true;
       this.dispose();
+      this.dispose = noop;
     }
   }
 }
 
 class BunjaInstance extends RefCounter {
+  #cleanup: (() => void) | undefined;
   constructor(
     public readonly id: string,
     public readonly value: unknown,
     public readonly effect: BunjaEffectCallback,
-    public readonly dispose: () => void,
+    private readonly _dispose: () => void,
   ) {
     super();
+  }
+  override dispose(): void {
+    this.#cleanup?.();
+    this._dispose();
+  }
+  override add(): void {
+    this.#cleanup ??= this.effect() ?? noop;
+    super.add();
   }
 }
 
