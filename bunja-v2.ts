@@ -211,13 +211,11 @@ export interface BunjaStoreGetResult<T> {
 }
 
 export class Bunja<T> {
-  static readonly bunjas: Bunja<unknown>[] = [];
-  readonly id: string;
+  private static counter = 0;
+  readonly id = String(Bunja.counter++);
+  debugLabel = "";
   #phase: BunjaPhase = { baked: false, parents: new Set(), scopes: new Set() };
-  constructor(public init: () => T) {
-    this.id = String(Bunja.bunjas.length);
-    Bunja.bunjas.push(this);
-  }
+  constructor(public init: () => T) {}
   get baked(): boolean {
     return this.#phase.baked;
   }
@@ -263,6 +261,10 @@ export class Bunja<T> {
     ).map(({ id }) => id);
     return `${this.id}:${scopeInstanceIds.join(",")}`;
   }
+  toString(): string {
+    const { id, debugLabel } = this;
+    return `[Bunja:${id}${debugLabel && ` - ${debugLabel}`}]`;
+  }
 }
 
 type BunjaPhase = BunjaPhaseUnknown | BunjaPhaseKnown;
@@ -281,14 +283,16 @@ interface BunjaPhaseKnown {
 }
 
 export class Scope<T> {
-  static readonly scopes: Scope<unknown>[] = [];
-  readonly id: string;
-  constructor(public readonly hash: HashFn = Scope.identity) {
-    this.id = String(Scope.scopes.length);
-    Scope.scopes.push(this);
-  }
+  private static counter = 0;
+  readonly id = String(Scope.counter++);
+  debugLabel = "";
+  constructor(public readonly hash: HashFn = Scope.identity) {}
   private static identity<T>(x: T): T {
     return x;
+  }
+  toString(): string {
+    const { id, debugLabel } = this;
+    return `[Scope:${id}${debugLabel && ` - ${debugLabel}`}]`;
   }
 }
 
@@ -324,7 +328,7 @@ class BunjaInstance extends RefCounter {
 
 class ScopeInstance extends RefCounter {
   private static counter = 0;
-  readonly id: string = String(ScopeInstance.counter++);
+  readonly id = String(ScopeInstance.counter++);
   constructor(
     public readonly value: unknown,
     public readonly dispose: () => void,
