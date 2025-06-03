@@ -1,4 +1,4 @@
-import { type Context, createContext, useContext, useEffect } from "react";
+import { type Context, createContext, use, useContext, useEffect } from "react";
 import {
   type Bunja,
   type BunjaStore,
@@ -13,23 +13,23 @@ export const BunjaStoreContext: Context<BunjaStore> = createContext(
   createBunjaStore(),
 );
 
-export const scopeContextMap: Map<Scope<any>, Context<any>> = new Map();
-export function bindScope(scope: Scope<any>, context: Context<any>): void {
-  scopeContextMap.set(scope, context);
+export const scopeContextMap: Map<Scope<unknown>, Context<unknown>> = new Map();
+export function bindScope<T>(scope: Scope<T>, context: Context<T>): void {
+  scopeContextMap.set(scope, context as Context<unknown>);
 }
 
 export function createScopeFromContext<T>(
   context: Context<T>,
   hash?: HashFn<T>,
 ): Scope<T> {
-  const scope = createScope(hash);
+  const scope = createScope<T>(hash);
   bindScope(scope, context);
   return scope;
 }
 
-const defaultReadScope: ReadScope = (scope) => {
+const defaultReadScope: ReadScope = <T>(scope: Scope<T>) => {
   const context = scopeContextMap.get(scope)!;
-  return useContext(context);
+  return use(context) as T;
 };
 
 export function useBunja<T>(
@@ -44,18 +44,18 @@ export function useBunja<T>(
 
 export type ScopePair<T> = [Scope<T>, T];
 
-export function inject<const T extends ScopePair<any>[]>(
+export function inject<const T extends ScopePair<unknown>[]>(
   overrideTable: T,
 ): ReadScope {
   const map = new Map(overrideTable);
-  return (scope) => {
-    if (map.has(scope)) return map.get(scope);
+  return <T>(scope: Scope<T>) => {
+    if (map.has(scope)) return map.get(scope) as T;
     const context = scopeContextMap.get(scope);
     if (!context) {
       throw new Error(
         "Unable to read the scope. Please inject the value explicitly or bind scope to the React context.",
       );
     }
-    return useContext(context);
+    return useContext(context) as T;
   };
 }
