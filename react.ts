@@ -15,7 +15,7 @@ export const BunjaStoreContext: Context<BunjaStore> = createContext(
 
 export const scopeContextMap: Map<Scope<unknown>, Context<unknown>> = new Map();
 export function bindScope<T>(scope: Scope<T>, context: Context<T>): void {
-  scopeContextMap.set(scope, context as Context<unknown>);
+  scopeContextMap.set(scope as Scope<unknown>, context as Context<unknown>);
 }
 
 export function createScopeFromContext<T>(
@@ -28,7 +28,7 @@ export function createScopeFromContext<T>(
 }
 
 const defaultReadScope: ReadScope = <T>(scope: Scope<T>) => {
-  const context = scopeContextMap.get(scope)!;
+  const context = scopeContextMap.get(scope as Scope<unknown>)!;
   return use(context) as T;
 };
 
@@ -49,8 +49,10 @@ export function inject<const T extends ScopePair<unknown>[]>(
 ): ReadScope {
   const map = new Map(overrideTable);
   return <T>(scope: Scope<T>) => {
-    if (map.has(scope)) return map.get(scope) as T;
-    const context = scopeContextMap.get(scope);
+    if (map.has(scope as Scope<unknown>)) {
+      return map.get(scope as Scope<unknown>) as T;
+    }
+    const context = scopeContextMap.get(scope as Scope<unknown>);
     if (!context) {
       throw new Error(
         "Unable to read the scope. Please inject the value explicitly or bind scope to the React context.",
