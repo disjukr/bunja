@@ -2,8 +2,7 @@ import { assertEquals } from "jsr:@std/assert";
 import { assertSpyCalls, spy } from "jsr:@std/testing/mock";
 import { FakeTime } from "jsr:@std/testing/time";
 
-import { createBunjaStore, createScope } from "./bunja.ts";
-import { bunja } from "./bunja.ts";
+import { bunja, createBunjaStore, createScope } from "./bunja.ts";
 
 const readNull = <T>() => (null as T);
 
