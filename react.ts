@@ -1,4 +1,4 @@
-import { type Context, createContext, use, useContext, useEffect } from "react";
+import { type Context, createContext, use, useEffect } from "react";
 import {
   type Bunja,
   type BunjaStore,
@@ -36,7 +36,7 @@ export function useBunja<T>(
   bunja: Bunja<T>,
   readScope: ReadScope = defaultReadScope,
 ): T {
-  const store = useContext(BunjaStoreContext);
+  const store = use(BunjaStoreContext);
   const { value, mount, deps } = store.get(bunja, readScope);
   useEffect(mount, deps);
   return value;
@@ -58,6 +58,6 @@ export function inject<const T extends ScopePair<unknown>[]>(
         "Unable to read the scope. Please inject the value explicitly or bind scope to the React context.",
       );
     }
-    return useContext(context) as T;
+    return use(context) as T;
   };
 }

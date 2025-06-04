@@ -260,12 +260,9 @@ export class Bunja<T> {
     this.#phase = { baked: true, parents, relatedBunjas, relatedScopes };
   }
   calcInstanceId(scopeInstanceMap: Map<Scope<unknown>, ScopeInstance>): string {
-    const localScopeInstanceMap = new Map(
-      this.relatedScopes.map((scope) => [scope, scopeInstanceMap.get(scope)!]),
+    const scopeInstanceIds = this.relatedScopes.map(
+      (scope) => scopeInstanceMap.get(scope)!.id,
     );
-    const scopeInstanceIds = Array.from(
-      localScopeInstanceMap.values(),
-    ).map(({ id }) => id);
     return `${this.id}:${scopeInstanceIds.join(",")}`;
   }
   toString(): string {
@@ -274,15 +271,15 @@ export class Bunja<T> {
   }
 }
 
-type BunjaPhase = BunjaPhaseUnknown | BunjaPhaseKnown;
+type BunjaPhase = BunjaPhaseUnbaked | BunjaPhaseBaked;
 
-interface BunjaPhaseUnknown {
+interface BunjaPhaseUnbaked {
   readonly baked: false;
   readonly parents: Set<Bunja<unknown>>;
   readonly scopes: Set<Scope<unknown>>;
 }
 
-interface BunjaPhaseKnown {
+interface BunjaPhaseBaked {
   readonly baked: true;
   readonly parents: Bunja<unknown>[];
   readonly relatedBunjas: Bunja<unknown>[];
