@@ -1,8 +1,14 @@
-export function bunja<T>(init: () => T): Bunja<T> {
+export interface BunjaFn {
+  <T>(init: () => T): Bunja<T>;
+  use: BunjaUseFn;
+  effect: BunjaEffectFn;
+}
+export const bunja: BunjaFn = bunjaFn;
+function bunjaFn<T>(init: () => T): Bunja<T> {
   return new Bunja(init);
 }
-bunja.use = invalidUse as BunjaUseFn;
-bunja.effect = invalidEffect as BunjaEffectFn;
+bunjaFn.use = invalidUse as BunjaUseFn;
+bunjaFn.effect = invalidEffect as BunjaEffectFn;
 
 export type BunjaUseFn = <T>(dep: Dep<T>) => T;
 export type BunjaEffectFn = (callback: BunjaEffectCallback) => void;
@@ -29,8 +35,6 @@ function invalidEffect() {
   );
 }
 
-const bunjaFn = bunja;
-
 interface BunjaStoreGetContext {
   bunjaInstance: BunjaInstance;
   bunjaInstanceMap: BunjaInstanceMap;
@@ -48,7 +52,7 @@ export class BunjaStore {
   #bunjas: Record<string, BunjaInstance> = {};
   #scopes: Map<Scope<unknown>, Map<unknown, ScopeInstance>> = new Map();
   #bakingContext: BunjaBakingContext | undefined;
-  dispose() {
+  dispose(): void {
     for (const instance of Object.values(this.#bunjas)) instance.dispose();
     for (const instanceMap of Object.values(this.#scopes)) {
       for (const instance of instanceMap.values()) instance.dispose();
@@ -218,9 +222,9 @@ export interface BunjaStoreGetResult<T> {
 }
 
 export class Bunja<T> {
-  private static counter = 0;
-  readonly id = String(Bunja.counter++);
-  debugLabel = "";
+  private static counter: number = 0;
+  readonly id: string = String(Bunja.counter++);
+  debugLabel: string = "";
   #phase: BunjaPhase = { baked: false, parents: new Set(), scopes: new Set() };
   constructor(public init: () => T) {}
   get baked(): boolean {
@@ -287,9 +291,9 @@ interface BunjaPhaseBaked {
 }
 
 export class Scope<T> {
-  private static counter = 0;
-  readonly id = String(Scope.counter++);
-  debugLabel = "";
+  private static counter: number = 0;
+  readonly id: string = String(Scope.counter++);
+  debugLabel: string = "";
   constructor(public readonly hash: HashFn<T> = Scope.identity) {}
   private static identity<T>(x: T): T {
     return x;
@@ -304,12 +308,12 @@ export type HashFn<T> = (value: T) => unknown;
 
 const noop = () => {};
 abstract class RefCounter {
-  #count = 0;
+  #count: number = 0;
   abstract dispose(): void;
-  add() {
+  add(): void {
     ++this.#count;
   }
-  sub() {
+  sub(): void {
     --this.#count;
     if (this.#count < 1) {
       this.dispose();
@@ -339,8 +343,8 @@ class BunjaInstance extends RefCounter {
 }
 
 class ScopeInstance extends RefCounter {
-  private static counter = 0;
-  readonly id = String(ScopeInstance.counter++);
+  private static counter: number = 0;
+  readonly id: string = String(ScopeInstance.counter++);
   constructor(
     public readonly value: unknown,
     public readonly dispose: () => void,
