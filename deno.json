@@ -1,6 +1,6 @@
 {
   "name": "@disjukr/bunja",
-  "version": "2.0.0-alpha.1",
+  "version": "2.0.0-alpha.2",
   "license": "Zlib",
   "exports": {
     ".": "./bunja.ts",
