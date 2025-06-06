@@ -1,4 +1,12 @@
-import { type Context, createContext, use, useEffect } from "react";
+import {
+  type Context,
+  createContext,
+  createElement,
+  type PropsWithChildren,
+  use,
+  useEffect,
+  useState,
+} from "react";
 import {
   type Bunja,
   type BunjaStore,
@@ -12,6 +20,14 @@ import {
 export const BunjaStoreContext: Context<BunjaStore> = createContext(
   createBunjaStore(),
 );
+
+export function BunjaStoreProvider(
+  { children }: PropsWithChildren,
+): React.JSX.Element {
+  const [value] = useState(createBunjaStore);
+  useEffect(() => () => value.dispose(), [value]);
+  return createElement(BunjaStoreContext, { value, children });
+}
 
 export const scopeContextMap: Map<Scope<unknown>, Context<unknown>> = new Map();
 export function bindScope<T>(scope: Scope<T>, context: Context<T>): void {
