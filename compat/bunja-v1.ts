@@ -1,4 +1,5 @@
 import { type Bunja, bunja as bunjaV2, type Dep } from "../bunja.ts";
+export { Bunja, createScope, Scope } from "../bunja.ts";
 
 export const bunja: {
   <T>(deps: [], init: () => T & BunjaValue): Bunja<T>;
