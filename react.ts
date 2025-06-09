@@ -62,7 +62,7 @@ export function useBunja<T>(
 
 export type ScopePair<T> = [Scope<T>, T];
 
-export function inject<const T extends ScopePair<unknown>[]>(
+export function inject<const T extends ScopePair<any>[]>(
   overrideTable: T,
 ): ReadScope {
   const map = new Map(overrideTable);
