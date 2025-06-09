@@ -94,12 +94,7 @@ export class BunjaStore {
         this.#getScopeInstance(scope, readScope(scope)),
       ]),
     );
-    const bunjaInstanceMap = new Map(
-      bunja.relatedBunjas.map((relatedBunja) => [
-        relatedBunja,
-        this.#getBunjaInstance(relatedBunja, scopeInstanceMap),
-      ]),
-    );
+    const bunjaInstanceMap = new Map();
     bunjaFn.use = <T>(dep: Dep<T>) => {
       if (dep instanceof Bunja) {
         return bunjaInstanceMap.get(dep as Bunja<unknown>)!.value as T;
@@ -109,6 +104,12 @@ export class BunjaStore {
       }
       throw new Error("`bunja.use` can only be used with Bunja or Scope.");
     };
+    for (const relatedBunja of bunja.relatedBunjas) {
+      bunjaInstanceMap.set(
+        relatedBunja,
+        this.#getBunjaInstance(relatedBunja, scopeInstanceMap),
+      );
+    }
     const bunjaInstance = this.#getBunjaInstance(bunja, scopeInstanceMap);
     return { bunjaInstance, bunjaInstanceMap, scopeInstanceMap };
   }
