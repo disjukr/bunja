@@ -299,6 +299,9 @@ export class Scope<T> {
   private static identity<T>(x: T): T {
     return x;
   }
+  bind(value: T): ScopeValuePair<T> {
+    return [this, value];
+  }
   toString(): string {
     const { id, debugLabel } = this;
     return `[Scope:${id}${debugLabel && ` - ${debugLabel}`}]`;
@@ -306,6 +309,7 @@ export class Scope<T> {
 }
 
 export type HashFn<T> = (value: T) => unknown;
+export type ScopeValuePair<T> = [Scope<T>, T];
 
 const noop = () => {};
 abstract class RefCounter {

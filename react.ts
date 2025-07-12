@@ -17,6 +17,7 @@ import {
   type HashFn,
   type ReadScope,
   type Scope,
+  type ScopeValuePair,
 } from "./bunja.ts";
 
 export const BunjaStoreContext: Context<BunjaStore> = createContext(
@@ -50,32 +51,37 @@ const defaultReadScope: ReadScope = <T>(scope: Scope<T>) => {
   return use(context) as T;
 };
 
+function createReadScopeFn(
+  scopeValuePairs: ScopeValuePair<any>[],
+): ReadScope {
+  const map = new Map(scopeValuePairs);
+  return <T>(scope: Scope<T>) => {
+    if (map.has(scope as Scope<unknown>)) {
+      return map.get(scope as Scope<unknown>) as T;
+    }
+    const context = scopeContextMap.get(scope as Scope<unknown>)!;
+    return use(context) as T;
+  };
+}
+
 export function useBunja<T>(
   bunja: Bunja<T>,
-  readScope: ReadScope = defaultReadScope,
+  scopeValuePairs?: ScopeValuePair<any>[],
 ): T {
   const store = use(BunjaStoreContext);
+  const readScope = scopeValuePairs
+    ? createReadScopeFn(scopeValuePairs)
+    : defaultReadScope;
   const { value, mount, deps } = store.get(bunja, readScope);
   useEffect(mount, deps);
   return value;
 }
 
-export type ScopePair<T> = [Scope<T>, T];
-
-export function inject<const T extends ScopePair<any>[]>(
-  overrideTable: T,
-): ReadScope {
-  const map = new Map(overrideTable);
-  return <T>(scope: Scope<T>) => {
-    if (map.has(scope as Scope<unknown>)) {
-      return map.get(scope as Scope<unknown>) as T;
-    }
-    const context = scopeContextMap.get(scope as Scope<unknown>);
-    if (!context) {
-      throw new Error(
-        "Unable to read the scope. Please inject the value explicitly or bind scope to the React context.",
-      );
-    }
-    return use(context) as T;
-  };
+/**
+ * @deprecated use `scopeValuePairs` parameter directly in `useBunja` instead.
+ */
+export function inject(
+  scopeValuePairs: ScopeValuePair<any>[],
+): ScopeValuePair<any>[] {
+  return scopeValuePairs;
 }

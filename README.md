@@ -223,15 +223,13 @@ const UrlScope = createScopeFromContext(UrlContext);
 
 You might want to use a bunja directly within a React component where the values to be injected into the scope are created.
 
-In such cases, you can use the inject function to inject values into the scope without wrapping the context separately.
+In such cases, you can use the second parameter of `useBunja` hook to inject values into the scope without wrapping the context separately.
 
 ```tsx
-import { inject } from "bunja/react";
-
 function MyComponent() {
   const { queryAtom } = useBunja(
     fetchBunja,
-    inject([[UrlScope, "https://example.com/"]])
+    [UrlScope.bind("https://example.com/")],
   );
   const { data, isPending, isError } = useAtomValue(queryAtom);
   // Your component logic here
