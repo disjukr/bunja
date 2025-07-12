@@ -18,8 +18,14 @@ export function createScope<T>(hash?: HashFn<T>): Scope<T> {
   return new Scope(hash);
 }
 
-export function createBunjaStore(): BunjaStore {
-  return new BunjaStore();
+export interface CreateBunjaStoreConfig {
+  wrapInstance?: WrapInstanceFn;
+}
+export function createBunjaStore(config?: CreateBunjaStoreConfig): BunjaStore {
+  const { wrapInstance = defaultWrapInstanceFn } = config ?? {};
+  const store = new BunjaStore();
+  store.wrapInstance = wrapInstance;
+  return store;
 }
 
 export type Dep<T> = Bunja<T> | Scope<T>;
@@ -48,10 +54,14 @@ interface BunjaBakingContext {
   currentBunja: Bunja<unknown>;
 }
 
+export type WrapInstanceFn = <T>(fn: (dispose: () => void) => T) => T;
+const defaultWrapInstanceFn: WrapInstanceFn = (fn) => fn(noop);
+
 export class BunjaStore {
   #bunjas: Record<string, BunjaInstance> = {};
   #scopes: Map<Scope<unknown>, Map<unknown, ScopeInstance>> = new Map();
   #bakingContext: BunjaBakingContext | undefined;
+  wrapInstance: WrapInstanceFn = defaultWrapInstanceFn;
   dispose(): void {
     for (const instance of Object.values(this.#bunjas)) instance.dispose();
     for (const instanceMap of Object.values(this.#scopes)) {
@@ -173,13 +183,17 @@ export class BunjaStore {
       if (bunja.baked) {
         const id = bunja.calcInstanceId(scopeInstanceMap);
         if (id in this.#bunjas) return this.#bunjas[id];
-        const bunjaInstanceValue = bunja.init();
-        return this.#createBunjaInstance(id, bunjaInstanceValue, effects);
+        return this.wrapInstance((dispose) => {
+          const value = bunja.init();
+          return this.#createBunjaInstance(id, value, effects, dispose);
+        });
       } else {
-        const bunjaInstanceValue = bunja.init();
-        bunja.bake();
-        const id = bunja.calcInstanceId(scopeInstanceMap);
-        return this.#createBunjaInstance(id, bunjaInstanceValue, effects);
+        return this.wrapInstance((dispose) => {
+          const value = bunja.init();
+          bunja.bake();
+          const id = bunja.calcInstanceId(scopeInstanceMap);
+          return this.#createBunjaInstance(id, value, effects, dispose);
+        });
       }
     } finally {
       bunjaFn.effect = originalEffect;
@@ -200,6 +214,7 @@ export class BunjaStore {
     id: string,
     value: unknown,
     effects: BunjaEffectCallback[],
+    dispose: () => void,
   ): BunjaInstance {
     const effect = () => {
       const cleanups = effects
@@ -207,8 +222,10 @@ export class BunjaStore {
         .filter(Boolean) as (() => void)[];
       return () => cleanups.forEach((cleanup) => cleanup());
     };
-    const dispose = () => delete this.#bunjas[id];
-    const bunjaInstance = new BunjaInstance(id, value, effect, dispose);
+    const bunjaInstance = new BunjaInstance(id, value, effect, () => {
+      dispose();
+      delete this.#bunjas[id];
+    });
     this.#bunjas[id] = bunjaInstance;
     return bunjaInstance;
   }
@@ -311,7 +328,6 @@ export class Scope<T> {
 export type HashFn<T> = (value: T) => unknown;
 export type ScopeValuePair<T> = [Scope<T>, T];
 
-const noop = () => {};
 abstract class RefCounter {
   #count: number = 0;
   abstract dispose(): void;
@@ -373,3 +389,5 @@ function toposort<T extends Toposortable>(nodes: T[]): T[] {
   for (const node of nodes) visit(node);
   return result;
 }
+
+const noop = () => {};
