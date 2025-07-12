@@ -2,8 +2,8 @@
 > You are viewing the `v2` branch.
 >
 > The current stable version is `1.x.x`.\
-> If you want to view the code for that version,
-> please [switch to the `v1` branch](https://github.com/disjukr/bunja/tree/v1).
+> If you want to view the code for that version, please
+> [switch to the `v1` branch](https://github.com/disjukr/bunja/tree/v1).
 
 # Bunja
 
@@ -14,33 +14,45 @@ Heavily inspired by [Bunshi](https://github.com/saasquatch/bunshi).
 
 ## Why is managing the lifetime of state necessary?
 
-Global state managers like jotai or signals offer the advantage of declaratively describing state and effectively reducing render counts,
-but they lack suitable methods for managing resources with a defined start and end.\
-For example, consider establishing and closing a WebSocket connection or a modal form UI that appears temporarily and then disappears.
+Global state managers like jotai or signals offer the advantage of declaratively
+describing state and effectively reducing render counts, but they lack suitable
+methods for managing resources with a defined start and end.\
+For example, consider establishing and closing a WebSocket connection or a modal
+form UI that appears temporarily and then disappears.
 
 Bunja is a library designed to address these weaknesses.\
-Each state defined with Bunja has a lifetime that begins when it is first depended on somewhere in the render tree and ends when all dependencies disappear.
+Each state defined with Bunja has a lifetime that begins when it is first
+depended on somewhere in the render tree and ends when all dependencies
+disappear.
 
-Therefore, when writing a state to manage a WebSocket,
-you only need to create a function that establishes the WebSocket connection and an dispose handler that terminates the connection.\
-The library automatically tracks the actual usage period and calls the init and dispose as needed.
+Therefore, when writing a state to manage a WebSocket, you only need to create a
+function that establishes the WebSocket connection and an dispose handler that
+terminates the connection.\
+The library automatically tracks the actual usage period and calls the init and
+dispose as needed.
 
 ## So, do I no longer need jotai or other state management libraries?
 
-No. Bunja focuses solely on managing the lifetime of state, so jotai and other state management libraries are still valuable.\
-You can typically use jotai or something, and when lifetime management becomes necessary, you can wrap those states with bunja.
+No. Bunja focuses solely on managing the lifetime of state, so jotai and other
+state management libraries are still valuable.\
+You can typically use jotai or something, and when lifetime management becomes
+necessary, you can wrap those states with bunja.
 
 ## How to use
 
 Bunja basically provides two functions: `bunja` and `useBunja`.\
-You can use `bunja` to define a state with a finite lifetime and use the `useBunja` hook to access that state.
+You can use `bunja` to define a state with a finite lifetime and use the
+`useBunja` hook to access that state.
 
 ### Defining a Bunja
 
-You can define a bunja using the `bunja` function. When you access the defined bunja with the `useBunja` hook, a bunja instance is created.\
-If all components in the render tree that refer to the bunja disappear, the bunja instance is automatically destroyed.
+You can define a bunja using the `bunja` function. When you access the defined
+bunja with the `useBunja` hook, a bunja instance is created.\
+If all components in the render tree that refer to the bunja disappear, the
+bunja instance is automatically destroyed.
 
-If you want to trigger effects when the lifetime of a bunja starts and ends, you can use the `bunja.effect` function.
+If you want to trigger effects when the lifetime of a bunja starts and ends, you
+can use the `bunja.effect` function.
 
 ```ts
 import { bunja } from "bunja";
@@ -66,11 +78,16 @@ function MyComponent() {
 
 ### Defining a Bunja that relies on other Bunja
 
-If you want to manage a state with a broad lifetime and another state with a narrower lifetime, you can create a (narrower) bunja that depends on a (broader) bunja.
-For example, you can think of a bunja that manages the WebSocket connection and disconnection, and another bunja that subscribes to a specific resource over the connected WebSocket.
+If you want to manage a state with a broad lifetime and another state with a
+narrower lifetime, you can create a (narrower) bunja that depends on a (broader)
+bunja. For example, you can think of a bunja that manages the WebSocket
+connection and disconnection, and another bunja that subscribes to a specific
+resource over the connected WebSocket.
 
-In an application composed of multiple pages, you might want to subscribe to the Foo resource on page A and the Bar resource on page B, while using the same WebSocket connection regardless of which page you're on.
-In such a case, you can write the following code.
+In an application composed of multiple pages, you might want to subscribe to the
+Foo resource on page A and the Bar resource on page B, while using the same
+WebSocket connection regardless of which page you're on. In such a case, you can
+write the following code.
 
 ```ts
 // To simplify the example, code for buffering and reconnection has been omitted.
@@ -130,21 +147,27 @@ function PageB() {
 }
 ```
 
-Notice that `websocketBunja` is not directly `useBunja`-ed.
-When you `useBunja` either `resourceFooBunja` or `resourceBarBunja`, since they depend on `websocketBunja`,
-it has the same effect as if `websocketBunja` were also `useBunja`-ed.
+Notice that `websocketBunja` is not directly `useBunja`-ed. When you `useBunja`
+either `resourceFooBunja` or `resourceBarBunja`, since they depend on
+`websocketBunja`, it has the same effect as if `websocketBunja` were also
+`useBunja`-ed.
 
 > [!NOTE]
-> When a bunja starts, the initialization effect of the bunja with a broader lifetime is called first.\
-> Similarly, when a bunja ends, the cleanup effect of the bunja with the broader lifetime is called first.\
-> This behavior is aligned with how React's `useEffect` cleanup function is invoked, where the parent’s cleanup is executed before the child’s in the render tree.
+> When a bunja starts, the initialization effect of the bunja with a broader
+> lifetime is called first.\
+> Similarly, when a bunja ends, the cleanup effect of the bunja with the broader
+> lifetime is called first.\
+> This behavior is aligned with how React's `useEffect` cleanup function is
+> invoked, where the parent’s cleanup is executed before the child’s in the
+> render tree.
 >
 > See: <https://github.com/facebook/react/issues/16728>
 
 ### Dependency injection using Scope
 
 You can use a bunja for local state management.\
-When you specify a scope as a dependency of the bunja, separate bunja instances are created based on the values injected into the scope.
+When you specify a scope as a dependency of the bunja, separate bunja instances
+are created based on the values injected into the scope.
 
 ```ts
 import { bunja, createScope } from "bunja";
@@ -165,9 +188,12 @@ const fetchBunja = bunja(() => {
 
 #### Injecting dependencies via React context
 
-If you bind a scope to a React context, bunjas that depend on the scope can retrieve values from the corresponding React context.
+If you bind a scope to a React context, bunjas that depend on the scope can
+retrieve values from the corresponding React context.
 
-In the example below, there are two React instances (`<ChildComponent />`) that reference the same `fetchBunja`, but since each looks at a different context value, two separate bunja instances are also created.
+In the example below, there are two React instances (`<ChildComponent />`) that
+reference the same `fetchBunja`, but since each looks at a different context
+value, two separate bunja instances are also created.
 
 ```tsx
 import { createContext } from "react";
@@ -209,7 +235,8 @@ function ChildComponent() {
 }
 ```
 
-You can use the `createScopeFromContext` function to handle both the creation of the scope and the binding to the context in one step.
+You can use the `createScopeFromContext` function to handle both the creation of
+the scope and the binding to the context in one step.
 
 ```ts
 import { createContext } from "react";
@@ -221,9 +248,11 @@ const UrlScope = createScopeFromContext(UrlContext);
 
 #### Injecting dependencies directly into the scope
 
-You might want to use a bunja directly within a React component where the values to be injected into the scope are created.
+You might want to use a bunja directly within a React component where the values
+to be injected into the scope are created.
 
-In such cases, you can use the second parameter of `useBunja` hook to inject values into the scope without wrapping the context separately.
+In such cases, you can use the second parameter of `useBunja` hook to inject
+values into the scope without wrapping the context separately.
 
 ```tsx
 function MyComponent() {
