@@ -26,12 +26,25 @@
         "types": "./dist/react.d.cts",
         "default": "./dist/react.cjs"
       }
+    },
+    "./solid": {
+      "import": {
+        "types": "./dist/solid.d.ts",
+        "default": "./dist/solid.js"
+      },
+      "require": {
+        "types": "./dist/solid.d.cts",
+        "default": "./dist/solid.cjs"
+      }
     }
   },
   "typesVersions": {
     "*": {
       "react": [
         "./dist/react.d.ts"
+      ],
+      "solid": [
+        "./dist/solid.d.ts"
       ],
       "*": [
         "./dist/bunja.d.ts"
@@ -51,18 +64,23 @@
   "devDependencies": {
     "@types/react": "^19",
     "react": "^19",
+    "solid-js": "^1.9.7",
     "tsdown": "^0.12.7",
     "typescript": "^5.6.3"
   },
   "peerDependencies": {
     "@types/react": "*",
-    "react": ">=19"
+    "react": ">=19",
+    "solid-js": "^1"
   },
   "peerDependenciesMeta": {
     "@types/react": {
       "optional": true
     },
     "react": {
+      "optional": true
+    },
+    "solid-js": {
       "optional": true
     }
   }

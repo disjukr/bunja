@@ -10,6 +10,7 @@
     "jsr:@std/testing@*": "1.0.5",
     "npm:@types/react@19": "19.1.5",
     "npm:react@19": "19.1.0",
+    "npm:solid-js@^1.9.7": "1.9.7_seroval@1.3.2",
     "npm:tsdown@~0.12.7": "0.12.7_typescript@5.6.3_rolldown@1.0.0-beta.11-commit.f051675",
     "npm:typescript@^5.6.3": "5.6.3"
   },
@@ -605,6 +606,23 @@
       "integrity": "sha512-RF0Fw+rO5AMf9MAyaRXI4AV0Ulj5lMHqVxxdSgiVbixSCXoEmmX/jk0CuJw4+3SqroYO9VoUh+HcuJivvtJemA==",
       "bin": true
     },
+    "seroval-plugins@1.3.2_seroval@1.3.2": {
+      "integrity": "sha512-0QvCV2lM3aj/U3YozDiVwx9zpH0q8A60CTWIv4Jszj/givcudPb48B+rkU5D51NJ0pTpweGMttHjboPa9/zoIQ==",
+      "dependencies": [
+        "seroval"
+      ]
+    },
+    "seroval@1.3.2": {
+      "integrity": "sha512-RbcPH1n5cfwKrru7v7+zrZvjLurgHhGyso3HTyGtRivGWgYjbOmGuivCQaORNELjNONoK35nj28EoWul9sb1zQ=="
+    },
+    "solid-js@1.9.7_seroval@1.3.2": {
+      "integrity": "sha512-/saTKi8iWEM233n5OSi1YHCCuh66ZIQ7aK2hsToPe4tqGm7qAejU1SwNuTPivbWAYq7SjuHVVYxxuZQNRbICiw==",
+      "dependencies": [
+        "csstype",
+        "seroval",
+        "seroval-plugins"
+      ]
+    },
     "tinyexec@1.0.1": {
       "integrity": "sha512-5uC6DDlmeqiOwCPmK9jMSdOuZTh8bU39Ys6yidB+UTt5hfZUPGAypSgFRiEp+jbi9qH40BLDvy85jIU88wKSqw=="
     },
@@ -663,6 +681,7 @@
       "dependencies": [
         "npm:@types/react@19",
         "npm:react@19",
+        "npm:solid-js@^1.9.7",
         "npm:tsdown@~0.12.7",
         "npm:typescript@^5.6.3"
       ]
