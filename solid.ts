@@ -20,16 +20,15 @@ import {
   type HashFn,
   type ReadScope,
   type Scope,
+  type ScopeValuePair,
 } from "./bunja.ts";
 
 type MaybeAccessor<T> = T | Accessor<T>;
 type AccessedValue<T> = T extends Accessor<infer U> ? U : T;
-const access = <T>(maybeAccessor: MaybeAccessor<T>) => {
-  if (typeof maybeAccessor === "function") {
-    return (maybeAccessor as Accessor<T>)();
-  }
-  return maybeAccessor;
-};
+function access<T>(maybeAccessor: MaybeAccessor<T>): T {
+  if (typeof maybeAccessor !== "function") return maybeAccessor;
+  return (maybeAccessor as Accessor<T>)();
+}
 
 export const BunjaStoreContext: Context<BunjaStore> = createContext(
   createBunjaStore({ wrapInstance: createRoot }),
@@ -81,35 +80,31 @@ const defaultReadScope: ReadScope = <T>(scope: Scope<T>) => {
   return access(useContext(context)) as T;
 };
 
+function createReadScopeFn(
+  scopeValuePairs: ScopeValuePair<any>[],
+): ReadScope {
+  const map = new Map(scopeValuePairs);
+  return <T>(scope: Scope<T>) => {
+    if (map.has(scope as Scope<unknown>)) {
+      return map.get(scope as Scope<unknown>) as T;
+    }
+    const context = scopeContextMap.get(scope as Scope<unknown>)!;
+    return access(useContext(context)) as T;
+  };
+}
+
 export function useBunja<T>(
   bunja: MaybeAccessor<Bunja<T>>,
-  readScope: ReadScope = defaultReadScope,
+  scopeValuePairs?: ScopeValuePair<any>[],
 ): Accessor<T> {
   const store = useContext(BunjaStoreContext);
+  const readScope = scopeValuePairs
+    ? createReadScopeFn(scopeValuePairs)
+    : defaultReadScope;
   const entry = createMemo(() => store.get(access(bunja), readScope));
   createEffect(() => {
     const cleanup = entry().mount();
     onCleanup(cleanup);
   });
   return () => entry().value;
-}
-
-export type ScopePair<T> = [Scope<T>, T];
-
-export function inject<const T extends ScopePair<any>[]>(
-  overrideTable: T,
-): ReadScope {
-  const map = new Map(overrideTable);
-  return <T>(scope: Scope<T>) => {
-    if (map.has(scope as Scope<unknown>)) {
-      return map.get(scope as Scope<unknown>) as T;
-    }
-    const context = scopeContextMap.get(scope as Scope<unknown>);
-    if (!context) {
-      throw new Error(
-        "Unable to read the scope. Please inject the value explicitly or bind scope to the Solid context.",
-      );
-    }
-    return access(useContext(context)) as T;
-  };
 }
