@@ -1,9 +1,3 @@
 {
-  "name": "@disjukr/bunja",
-  "version": "2.0.0-alpha.5",
-  "license": "Zlib",
-  "exports": {
-    ".": "./bunja.ts",
-    "./react": "./react.ts"
-  }
+  "workspace": ["./bunja"]
 }

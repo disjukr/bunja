@@ -677,14 +677,18 @@
     }
   },
   "workspace": {
-    "packageJson": {
-      "dependencies": [
-        "npm:@types/react@19",
-        "npm:react@19",
-        "npm:solid-js@^1.9.7",
-        "npm:tsdown@~0.12.7",
-        "npm:typescript@^5.6.3"
-      ]
+    "members": {
+      "bunja": {
+        "packageJson": {
+          "dependencies": [
+            "npm:@types/react@19",
+            "npm:react@19",
+            "npm:solid-js@^1.9.7",
+            "npm:tsdown@~0.12.7",
+            "npm:typescript@^5.6.3"
+          ]
+        }
+      }
     }
   }
 }
