@@ -14,6 +14,7 @@ import {
   type BunjaStore,
   createBunjaStore,
   createScope,
+  delayUnmount,
   type HashFn,
   type ReadScope,
   type Scope,
@@ -73,7 +74,7 @@ export function useBunja<T>(
     ? createReadScopeFn(scopeValuePairs)
     : defaultReadScope;
   const { value, mount, deps } = store.get(bunja, readScope);
-  useEffect(mount, deps);
+  useEffect(delayUnmount(mount), deps);
   return value;
 }
 

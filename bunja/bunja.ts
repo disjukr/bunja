@@ -83,11 +83,9 @@ export class BunjaStore {
           bunjaInstance.add();
           scopeInstanceMap.forEach((instance) => instance.add());
           const unmount = () => {
-            setTimeout(() => {
-              bunjaInstanceMap.forEach((instance) => instance.sub());
-              bunjaInstance.sub();
-              scopeInstanceMap.forEach((instance) => instance.sub());
-            });
+            bunjaInstanceMap.forEach((instance) => instance.sub());
+            bunjaInstance.sub();
+            scopeInstanceMap.forEach((instance) => instance.sub());
           };
           return unmount;
         },
@@ -237,6 +235,16 @@ export interface BunjaStoreGetResult<T> {
   value: T;
   mount: () => () => void;
   deps: unknown[];
+}
+
+export function delayUnmount(
+  mount: () => () => void,
+  ms: number = 0,
+): () => () => void {
+  return () => {
+    const unmount = mount();
+    return () => setTimeout(unmount, ms);
+  };
 }
 
 export class Bunja<T> {

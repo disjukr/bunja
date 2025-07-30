@@ -104,7 +104,7 @@ export function useBunja<T>(
   const entry = createMemo(() => store.get(access(bunja), readScope));
   createEffect(() => {
     const cleanup = entry().mount();
-    onCleanup(cleanup);
+    onCleanup(() => setTimeout(cleanup));
   });
   return () => entry().value;
 }
