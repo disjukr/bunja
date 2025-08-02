@@ -13,6 +13,7 @@ import {
   type Bunja,
   type BunjaStore,
   createBunjaStore,
+  createReadScopeFn,
   createScope,
   delayUnmount,
   type HashFn,
@@ -52,26 +53,16 @@ const defaultReadScope: ReadScope = <T>(scope: Scope<T>) => {
   return use(context) as T;
 };
 
-function createReadScopeFn(
-  scopeValuePairs: ScopeValuePair<any>[],
-): ReadScope {
-  const map = new Map(scopeValuePairs);
-  return <T>(scope: Scope<T>) => {
-    if (map.has(scope as Scope<unknown>)) {
-      return map.get(scope as Scope<unknown>) as T;
-    }
-    const context = scopeContextMap.get(scope as Scope<unknown>)!;
-    return use(context) as T;
-  };
-}
-
 export function useBunja<T>(
   bunja: Bunja<T>,
   scopeValuePairs?: ScopeValuePair<any>[],
 ): T {
   const store = use(BunjaStoreContext);
   const readScope = scopeValuePairs
-    ? createReadScopeFn(scopeValuePairs)
+    ? createReadScopeFn(scopeValuePairs, <T>(scope: Scope<T>) => {
+      const context = scopeContextMap.get(scope as Scope<unknown>)!;
+      return use(context) as T;
+    })
     : defaultReadScope;
   const { value, mount, deps } = store.get(bunja, readScope);
   useEffect(delayUnmount(mount), deps);

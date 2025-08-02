@@ -16,6 +16,7 @@ import {
   type Bunja,
   type BunjaStore,
   createBunjaStore,
+  createReadScopeFn,
   createScope,
   type HashFn,
   type ReadScope,
@@ -80,26 +81,16 @@ const defaultReadScope: ReadScope = <T>(scope: Scope<T>) => {
   return access(useContext(context)) as T;
 };
 
-function createReadScopeFn(
-  scopeValuePairs: ScopeValuePair<any>[],
-): ReadScope {
-  const map = new Map(scopeValuePairs);
-  return <T>(scope: Scope<T>) => {
-    if (map.has(scope as Scope<unknown>)) {
-      return map.get(scope as Scope<unknown>) as T;
-    }
-    const context = scopeContextMap.get(scope as Scope<unknown>)!;
-    return access(useContext(context)) as T;
-  };
-}
-
 export function useBunja<T>(
   bunja: MaybeAccessor<Bunja<T>>,
   scopeValuePairs?: ScopeValuePair<any>[],
 ): Accessor<T> {
   const store = useContext(BunjaStoreContext);
   const readScope = scopeValuePairs
-    ? createReadScopeFn(scopeValuePairs)
+    ? createReadScopeFn(scopeValuePairs, <T>(scope: Scope<T>) => {
+      const context = scopeContextMap.get(scope as Scope<unknown>)!;
+      return access(useContext(context)) as T;
+    })
     : defaultReadScope;
   const entry = createMemo(() => store.get(access(bunja), readScope));
   createEffect(() => {
