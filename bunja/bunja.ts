@@ -1,6 +1,7 @@
 export interface BunjaFn {
   <T>(init: () => T): Bunja<T>;
   use: BunjaUseFn;
+  fork: BunjaForkFn;
   effect: BunjaEffectFn;
 }
 export const bunja: BunjaFn = bunjaFn;
@@ -8,9 +9,14 @@ function bunjaFn<T>(init: () => T): Bunja<T> {
   return new Bunja(init);
 }
 bunjaFn.use = invalidUse as BunjaUseFn;
+bunjaFn.fork = invalidFork as BunjaForkFn;
 bunjaFn.effect = invalidEffect as BunjaEffectFn;
 
 export type BunjaUseFn = <T>(dep: Dep<T>) => T;
+export type BunjaForkFn = <T>(
+  bunja: Bunja<T>,
+  scopeValuePairs: ScopeValuePair<any>[],
+) => T;
 export type BunjaEffectFn = (callback: BunjaEffectCallback) => void;
 export type BunjaEffectCallback = () => (() => void) | void;
 
@@ -33,6 +39,11 @@ export type Dep<T> = Bunja<T> | Scope<T>;
 function invalidUse() {
   throw new Error(
     "`bunja.use` can only be used inside a bunja init function.",
+  );
+}
+function invalidFork() {
+  throw new Error(
+    "`bunja.fork` can only be used inside a bunja init function.",
   );
 }
 function invalidEffect() {
@@ -158,12 +169,13 @@ export class BunjaStore {
       if (dep instanceof Scope) return useScope(dep) as T;
       throw new Error("`bunja.use` can only be used with Bunja or Scope.");
     };
+    const originalBakingContext = this.#bakingContext;
     try {
       this.#bakingContext = { currentBunja: bunja };
       const bunjaInstance = this.#getBunjaInstance(bunja, scopeInstanceMap);
       return { bunjaInstance, bunjaInstanceMap, scopeInstanceMap };
     } finally {
-      this.#bakingContext = undefined;
+      this.#bakingContext = originalBakingContext;
     }
   }
   #getBunjaInstance<T>(
@@ -171,11 +183,18 @@ export class BunjaStore {
     scopeInstanceMap: ScopeInstanceMap,
   ): BunjaInstance {
     const originalEffect = bunjaFn.effect;
+    const originalFork = bunjaFn.fork;
     const prevBunja = this.#bakingContext?.currentBunja;
     try {
       const effects: BunjaEffectCallback[] = [];
       bunjaFn.effect = (callback: BunjaEffectCallback) => {
         effects.push(callback);
+      };
+      bunjaFn.fork = (b, scopeValuePairs) => {
+        const readScope = createReadScopeFn(scopeValuePairs, bunjaFn.use);
+        const { value, mount } = this.get(b, readScope);
+        bunjaFn.effect(mount);
+        return value;
       };
       if (this.#bakingContext) this.#bakingContext.currentBunja = bunja;
       if (bunja.baked) {
@@ -195,6 +214,7 @@ export class BunjaStore {
       }
     } finally {
       bunjaFn.effect = originalEffect;
+      bunjaFn.fork = originalFork;
       if (this.#bakingContext) this.#bakingContext.currentBunja = prevBunja!;
     }
   }
@@ -230,6 +250,18 @@ export class BunjaStore {
 }
 
 export type ReadScope = <T>(scope: Scope<T>) => T;
+export function createReadScopeFn(
+  scopeValuePairs: ScopeValuePair<any>[],
+  readScope: ReadScope,
+): ReadScope {
+  const map = new Map(scopeValuePairs);
+  return <T>(scope: Scope<T>) => {
+    if (map.has(scope as Scope<unknown>)) {
+      return map.get(scope as Scope<unknown>) as T;
+    }
+    return readScope(scope);
+  };
+}
 
 export interface BunjaStoreGetResult<T> {
   value: T;
