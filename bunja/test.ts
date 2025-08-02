@@ -205,3 +205,68 @@ Deno.test({
     cleanup3();
   },
 });
+
+Deno.test({
+  name: "fork",
+  fn() {
+    const store = createBunjaStore();
+    const aaScope = createScope<string>();
+    const bbScope = createScope<string>();
+    const [aMountSpy, aUnmountSpy] = [spy(), spy()];
+    const [bMountSpy, bUnmountSpy] = [spy(), spy()];
+    const [cMountSpy, cUnmountSpy] = [spy(), spy()];
+    const aBunja = bunja(() => {
+      bunja.effect(() => (aMountSpy(), aUnmountSpy));
+      return {};
+    });
+    const bBunja = bunja(() => {
+      const a = bunja.use(aBunja);
+      const scopeValue = bunja.use(aaScope);
+      bunja.use(bbScope);
+      bunja.effect(() => (bMountSpy(), bUnmountSpy));
+      return { a, scopeValue };
+    });
+    const cBunja = bunja(() => {
+      const foo = bunja.fork(bBunja, [aaScope.bind("foo")]);
+      const bar = bunja.fork(bBunja, [aaScope.bind("bar")]);
+      bunja.effect(() => (cMountSpy(), cUnmountSpy));
+      return { foo, bar };
+    });
+    assertSpyCalls(aMountSpy, 0);
+    assertSpyCalls(bMountSpy, 0);
+    assertSpyCalls(cMountSpy, 0);
+    const { value, mount: m1, deps: d1 } = store.get(
+      cBunja,
+      <T>() => "abc" as T,
+    );
+    assertSpyCalls(aMountSpy, 0);
+    assertSpyCalls(bMountSpy, 0);
+    assertSpyCalls(cMountSpy, 0);
+    const c1 = m1();
+    assertEquals(d1, ["abc"]);
+    assertEquals(value.foo.a, value.bar.a);
+    assertEquals(value.foo.scopeValue, "foo");
+    assertEquals(value.bar.scopeValue, "bar");
+    assertSpyCalls(aMountSpy, 1);
+    assertSpyCalls(bMountSpy, 2);
+    assertSpyCalls(cMountSpy, 1);
+    assertSpyCalls(aUnmountSpy, 0);
+    assertSpyCalls(bUnmountSpy, 0);
+    assertSpyCalls(cUnmountSpy, 0);
+    const { mount: m2, deps: d2 } = store.get(
+      bBunja,
+      <T>(scope: any) => ((scope === aaScope) ? "foo" : "abc") as T,
+    );
+    const c2 = m2();
+    assertEquals(d2, ["foo", "abc"]);
+    assertSpyCalls(bMountSpy, 2);
+    c1();
+    assertSpyCalls(aUnmountSpy, 0);
+    assertSpyCalls(bUnmountSpy, 1);
+    assertSpyCalls(cUnmountSpy, 1);
+    c2();
+    assertSpyCalls(aUnmountSpy, 1);
+    assertSpyCalls(bUnmountSpy, 2);
+    assertSpyCalls(cUnmountSpy, 1);
+  },
+});
