@@ -6,5 +6,6 @@
     ".": "./bunja.ts",
     "./react": "./react.ts",
     "./solid": "./solid.ts"
-  }
+  },
+  "exclude": ["dist"]
 }

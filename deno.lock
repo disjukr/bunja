@@ -11,8 +11,9 @@
     "npm:@types/react@19": "19.1.5",
     "npm:react@19": "19.1.0",
     "npm:solid-js@^1.9.7": "1.9.7_seroval@1.3.2",
+    "npm:tsdown@0.12.7": "0.12.7_typescript@5.6.3_rolldown@1.0.0-beta.11-commit.f051675",
     "npm:tsdown@~0.12.7": "0.12.7_typescript@5.6.3_rolldown@1.0.0-beta.11-commit.f051675",
-    "npm:typescript@^5.6.3": "5.6.3"
+    "npm:typescript@5.6.3": "5.6.3"
   },
   "jsr": {
     "@std/assert@1.0.6": {

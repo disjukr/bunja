@@ -52,8 +52,7 @@
     }
   },
   "scripts": {
-    "build": "tsdown",
-    "check": "tsc --noEmit"
+    "build": "tsdown"
   },
   "keywords": [
     "bunja",

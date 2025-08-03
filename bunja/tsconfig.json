@@ -6,7 +6,6 @@
     "allowImportingTsExtensions": true,
     "declaration": true,
     "emitDeclarationOnly": true,
-    "isolatedDeclarations": true,
     "skipLibCheck": true,
     "outDir": "dist"
   }
