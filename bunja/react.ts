@@ -68,12 +68,3 @@ export function useBunja<T>(
   useEffect(delayUnmount(mount), deps);
   return value;
 }
-
-/**
- * @deprecated use `scopeValuePairs` parameter directly in `useBunja` instead.
- */
-export function inject(
-  scopeValuePairs: ScopeValuePair<any>[],
-): ScopeValuePair<any>[] {
-  return scopeValuePairs;
-}
