@@ -87,10 +87,7 @@ export function useBunja<T>(
 ): Accessor<T> {
   const store = useContext(BunjaStoreContext);
   const readScope = scopeValuePairs
-    ? createReadScopeFn(scopeValuePairs, <T>(scope: Scope<T>) => {
-      const context = scopeContextMap.get(scope as Scope<unknown>)!;
-      return access(useContext(context)) as T;
-    })
+    ? createReadScopeFn(scopeValuePairs, defaultReadScope)
     : defaultReadScope;
   const entry = createMemo(() => store.get(access(bunja), readScope));
   createEffect(() => {

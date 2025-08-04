@@ -59,10 +59,7 @@ export function useBunja<T>(
 ): T {
   const store = use(BunjaStoreContext);
   const readScope = scopeValuePairs
-    ? createReadScopeFn(scopeValuePairs, <T>(scope: Scope<T>) => {
-      const context = scopeContextMap.get(scope as Scope<unknown>)!;
-      return use(context) as T;
-    })
+    ? createReadScopeFn(scopeValuePairs, defaultReadScope)
     : defaultReadScope;
   const { value, mount, deps } = store.get(bunja, readScope);
   useEffect(delayUnmount(mount), deps);
