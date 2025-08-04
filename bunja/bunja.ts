@@ -1,3 +1,7 @@
+// @ts-ignore dev
+// deno-lint-ignore no-process-global
+const __DEV__ = process.env.NODE_ENV !== "production";
+
 export interface BunjaFn {
   <T>(init: () => T): Bunja<T>;
   use: BunjaUseFn;
@@ -69,10 +73,22 @@ export type WrapInstanceFn = <T>(fn: (dispose: () => void) => T) => T;
 const defaultWrapInstanceFn: WrapInstanceFn = (fn) => fn(noop);
 
 export class BunjaStore {
+  private static counter: number = 0;
+  readonly id: string = String(BunjaStore.counter++);
   #bunjas: Record<string, BunjaInstance> = {};
   #scopes: Map<Scope<unknown>, Map<unknown, ScopeInstance>> = new Map();
   #bakingContext: BunjaBakingContext | undefined;
   wrapInstance: WrapInstanceFn = defaultWrapInstanceFn;
+  constructor() {
+    if (__DEV__) {
+      devtoolsGlobalHook.stores[this.id] = this;
+      devtoolsGlobalHook.emit("storeCreated", { storeId: this.id });
+    }
+  }
+  get _internalState() {
+    if (__DEV__) return { bunjas: this.#bunjas, scopes: this.#scopes };
+    return undefined;
+  }
   dispose(): void {
     for (const instance of Object.values(this.#bunjas)) instance.dispose();
     for (const instanceMap of Object.values(this.#scopes)) {
@@ -80,6 +96,10 @@ export class BunjaStore {
     }
     this.#bunjas = {};
     this.#scopes = new Map();
+    if (__DEV__) {
+      devtoolsGlobalHook.emit("storeDisposed", { storeId: this.id });
+      delete devtoolsGlobalHook.stores[this.id];
+    }
   }
   get<T>(bunja: Bunja<T>, readScope: ReadScope): BunjaStoreGetResult<T> {
     const originalUse = bunjaFn.use;
@@ -87,7 +107,7 @@ export class BunjaStore {
       const { bunjaInstance, bunjaInstanceMap, scopeInstanceMap } = bunja.baked
         ? this.#getBaked(bunja, readScope)
         : this.#getUnbaked(bunja, readScope);
-      return {
+      const result: BunjaStoreGetResult<T> = {
         value: bunjaInstance.value as T,
         mount: () => {
           bunjaInstanceMap.forEach((instance) => instance.add());
@@ -102,6 +122,14 @@ export class BunjaStore {
         },
         deps: Array.from(scopeInstanceMap.values()).map(({ value }) => value),
       };
+      if (__DEV__) {
+        result.bunjaInstance = bunjaInstance;
+        devtoolsGlobalHook.emit("getCalled", {
+          storeId: this.id,
+          bunjaInstanceId: bunjaInstance.id,
+        });
+      }
+      return result;
     } finally {
       bunjaFn.use = originalUse;
     }
@@ -225,7 +253,16 @@ export class BunjaStore {
     return instanceMap.get(key) ??
       instanceMap.set(
         key,
-        new ScopeInstance(value, () => instanceMap.delete(key)),
+        this.#createScopeInstance(scope, key, value, () => {
+          instanceMap.delete(key);
+          if (__DEV__) {
+            devtoolsGlobalHook.emit("scopeInstanceUnmounted", {
+              storeId: this.id,
+              scope,
+              key,
+            });
+          }
+        }),
       ).get(key)!;
   }
   #createBunjaInstance(
@@ -241,11 +278,38 @@ export class BunjaStore {
       return () => cleanups.forEach((cleanup) => cleanup());
     };
     const bunjaInstance = new BunjaInstance(id, value, effect, () => {
+      if (__DEV__) {
+        devtoolsGlobalHook.emit("bunjaInstanceUnmounted", {
+          storeId: this.id,
+          bunjaInstanceId: id,
+        });
+      }
       dispose();
       delete this.#bunjas[id];
     });
     this.#bunjas[id] = bunjaInstance;
+    if (__DEV__) {
+      devtoolsGlobalHook.emit("bunjaInstanceMounted", {
+        storeId: this.id,
+        bunjaInstanceId: id,
+      });
+    }
     return bunjaInstance;
+  }
+  #createScopeInstance(
+    scope: Scope<unknown>,
+    key: unknown,
+    value: unknown,
+    dispose: () => void,
+  ): ScopeInstance {
+    if (__DEV__) {
+      devtoolsGlobalHook.emit("scopeInstanceMounted", {
+        storeId: this.id,
+        scope,
+        key,
+      });
+    }
+    return new ScopeInstance(value, dispose);
   }
 }
 
@@ -267,6 +331,7 @@ export interface BunjaStoreGetResult<T> {
   value: T;
   mount: () => () => void;
   deps: unknown[];
+  bunjaInstance?: BunjaInstance;
 }
 
 export function delayUnmount(
@@ -431,3 +496,64 @@ function toposort<T extends Toposortable>(nodes: T[]): T[] {
 }
 
 const noop = () => {};
+
+export interface BunjaDevtoolsGlobalHook {
+  stores: Record<string, BunjaStore>;
+  listeners: Record<
+    BunjaDevtoolsEventType,
+    Set<(event: any) => void>
+  >;
+  emit<T extends BunjaDevtoolsEventType>(
+    type: T,
+    event: BunjaDevtoolsEvent[T],
+  ): void;
+  on<T extends BunjaDevtoolsEventType>(
+    type: T,
+    listener: (event: BunjaDevtoolsEvent[T]) => void,
+  ): () => void;
+}
+export interface BunjaDevtoolsEvent {
+  storeCreated: { storeId: string };
+  storeDisposed: { storeId: string };
+  getCalled: { storeId: string; bunjaInstanceId: string };
+  bunjaInstanceMounted: { storeId: string; bunjaInstanceId: string };
+  bunjaInstanceUnmounted: { storeId: string; bunjaInstanceId: string };
+  scopeInstanceMounted: {
+    storeId: string;
+    scope: Scope<unknown>;
+    key: unknown;
+  };
+  scopeInstanceUnmounted: {
+    storeId: string;
+    scope: Scope<unknown>;
+    key: unknown;
+  };
+}
+export type BunjaDevtoolsEventType = keyof BunjaDevtoolsEvent;
+let devtoolsGlobalHook: BunjaDevtoolsGlobalHook;
+if (__DEV__) {
+  if ((globalThis as any).__BUNJA_DEVTOOLS_GLOBAL_HOOK__) {
+    devtoolsGlobalHook = (globalThis as any).__BUNJA_DEVTOOLS_GLOBAL_HOOK__;
+  } else {
+    devtoolsGlobalHook = {
+      stores: {},
+      listeners: {
+        storeCreated: new Set(),
+        storeDisposed: new Set(),
+        getCalled: new Set(),
+        bunjaInstanceMounted: new Set(),
+        bunjaInstanceUnmounted: new Set(),
+        scopeInstanceMounted: new Set(),
+        scopeInstanceUnmounted: new Set(),
+      },
+      emit: (type, event) => {
+        for (const fn of devtoolsGlobalHook.listeners[type]) fn(event);
+      },
+      on: (type, listener) => {
+        devtoolsGlobalHook.listeners[type].add(listener);
+        return () => devtoolsGlobalHook.listeners[type].delete(listener);
+      },
+    };
+    (globalThis as any).__BUNJA_DEVTOOLS_GLOBAL_HOOK__ = devtoolsGlobalHook;
+  }
+}
