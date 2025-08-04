@@ -7,6 +7,7 @@ import {
   type PropsWithChildren,
   use,
   useEffect,
+  useMemo,
   useState,
 } from "react";
 import {
@@ -21,6 +22,10 @@ import {
   type Scope,
   type ScopeValuePair,
 } from "./bunja.ts";
+
+// @ts-ignore dev
+// deno-lint-ignore no-process-global
+const __DEV__ = process.env.NODE_ENV !== "production";
 
 export const BunjaStoreContext: Context<BunjaStore> = createContext(
   createBunjaStore(),
@@ -61,7 +66,17 @@ export function useBunja<T>(
   const readScope = scopeValuePairs
     ? createReadScopeFn(scopeValuePairs, defaultReadScope)
     : defaultReadScope;
-  const { value, mount, deps } = store.get(bunja, readScope);
-  useEffect(delayUnmount(mount), deps);
-  return value;
+  if (__DEV__) {
+    const { value, mount, deps, bunjaInstance } = store.get(bunja, readScope);
+    useEffect(delayUnmount(mount), deps);
+    useMemo(
+      () => ({ bunja, scopeValuePairs, bunjaInstance }),
+      [bunja, scopeValuePairs, bunjaInstance],
+    );
+    return value;
+  } else {
+    const { value, mount, deps } = store.get(bunja, readScope);
+    useEffect(delayUnmount(mount), deps);
+    return value;
+  }
 }
