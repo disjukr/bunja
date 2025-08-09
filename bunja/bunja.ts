@@ -65,6 +65,11 @@ interface BunjaStoreGetContext {
 type BunjaInstanceMap = Map<Bunja<unknown>, BunjaInstance>;
 type ScopeInstanceMap = Map<Scope<unknown>, ScopeInstance>;
 
+interface InternalState {
+  bunjas: Record<string, BunjaInstance>;
+  scopes: Map<Scope<unknown>, Map<unknown, ScopeInstance>>;
+}
+
 interface BunjaBakingContext {
   currentBunja: Bunja<unknown>;
 }
@@ -85,7 +90,7 @@ export class BunjaStore {
       devtoolsGlobalHook.emit("storeCreated", { storeId: this.id });
     }
   }
-  get _internalState() {
+  get _internalState(): InternalState | undefined {
     if (__DEV__) return { bunjas: this.#bunjas, scopes: this.#scopes };
     return undefined;
   }
