@@ -264,3 +264,21 @@ function MyComponent() {
   // Your component logic here
 }
 ```
+
+##### Doing the same thing inside a bunja
+
+You can use `bunja.fork` to inject scope values from within a bunja
+initialization function.
+
+```ts
+const myBunja = bunja(() => {
+  const fooData = bunja.fork(fetchBunja, [
+    UrlScope.bind("https://example.com/foo"),
+  ]);
+  const barData = bunja.fork(fetchBunja, [
+    UrlScope.bind("https://example.com/bar"),
+  ]);
+
+  return { fooData, barData };
+});
+```
