@@ -1,3 +1,7 @@
 {
-  "workspace": ["./bunja"]
+  "workspace": [
+    "./bunja",
+    "./examples/*"
+  ],
+  "nodeModulesDir": "auto"
 }

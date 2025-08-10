@@ -1,0 +1,14 @@
+{
+  "imports": {
+    "react": "npm:react@19.1.0",
+    "react-dom/client": "npm:react-dom@19.1.0/client",
+    "bunja": "../../bunja/bunja.ts",
+    "bunja/react": "../../bunja/react.ts",
+    "@deno/vite-plugin": "npm:@deno/vite-plugin@^1.0.5"
+  },
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+    "lib": ["dom", "dom.iterable", "es2017"]
+  }
+}
