@@ -1,41 +1,54 @@
-# Bunja Timer Example
+# Bunja Timer/Countdown Example
 
-This project is a timer application example using the Bunja state management
-library.
+A comprehensive timer and countdown application demonstrating the power of
+**Bunja** lifetime management combined with **Jotai** reactive state management.
 
-## Tech Stack
+## ✨ Features
 
-- **Deno** - Modern TypeScript/JavaScript runtime
-- **React** - UI library
-- **TypeScript** - Static type checking
-- **Vite** - Fast development server and build tool
-- **Bunja** - State lifetime management library
+- **Dual Functionality**: Both stopwatch timers and countdown timers
+- **Multiple Instances**: Run multiple independent timers/countdowns
+  simultaneously
+- **Title Management**: Editable titles for each timer with inline editing
+- **Sound Feedback**: Audio cues for start, stop, and completion events
+- **Alarm Snooze**: Stop countdown alarms by pressing reset
+- **Natural Countdown**: Countdown displays show full seconds (3→2→1→0)
+- **Responsive Design**: Modern CSS with animations and mobile support
+- **Clean Architecture**: Separated business logic and UI components
 
-## Project Structure
+## 🛠 Tech Stack
+
+- **[Deno](https://deno.land/)** - Modern TypeScript/JavaScript runtime
+- **[React](https://react.dev/)** - UI library with hooks
+- **[TypeScript](https://www.typescriptlang.org/)** - Static type checking
+- **[Vite](https://vitejs.dev/)** - Fast development server and build tool
+- **[Bunja](../../bunja/README.md)** - State lifetime management library
+- **[Jotai](https://jotai.org/)** - Reactive state management with atoms
+
+## 📁 Project Structure
 
 ```
 src/
-├── main.tsx          # Application entry point
-├── TimerBoard.tsx    # Timer board component (manages multiple timers)
-├── Timer.tsx         # Individual timer component
+├── main.tsx              # Application entry point
+├── App.tsx               # Main app component
+├── Timer.tsx             # Stopwatch timer component
+├── Countdown.tsx         # Countdown timer component
+├── TitleEditor.tsx       # Shared title editing component
+├── styles.css            # Modern CSS with animations
 └── state/
-    ├── timer.ts      # Timer state logic (Bunja)
-    ├── tick.ts       # Tick state logic 
-    └── sound.ts      # Sound state logic
+    ├── app.ts            # Dashboard state (item management)
+    ├── timer.ts          # Timer state logic with derived atoms
+    ├── countdown.ts      # Countdown state logic with derived atoms
+    ├── item.ts           # Shared item state (titles, editing)
+    ├── tick.ts           # Global ticker for time updates
+    ├── sound.ts          # Audio feedback system
+    └── jotai-store.ts    # Jotai store scope for dependency injection
 ```
 
-## Key Features
-
-- **Multiple Timers**: Run multiple independent timers simultaneously
-- **Timer Controls**: Start, stop, and reset functionality
-- **Real-time Updates**: Precise time display with 10ms resolution
-- **State Lifetime Management**: Efficient resource management through Bunja
-
-## Development Setup
+## 🚀 Development Setup
 
 ### 1. Install Deno
 
-Deno 2 must be installed:
+Deno 2+ is required:
 
 ```bash
 # Windows (PowerShell)
@@ -57,10 +70,9 @@ deno install
 deno task dev
 ```
 
-Once the development server starts, you can access it at `http://localhost:5173`
-in your browser.
+Visit `http://localhost:5173` in your browser.
 
-## Build and Deploy
+## 🏗 Build and Deploy
 
 ### Production Build
 
@@ -78,78 +90,107 @@ Preview the built application locally:
 deno task preview
 ```
 
-## Bunja Usage Example
+## 🧠 Architecture Overview
 
-In this example, Bunja manages the state lifetime of each timer:
+### Bunja + Jotai Integration
+
+This example showcases how **Bunja** can work seamlessly with **Jotai** for a
+powerful state management solution:
+
+- **Bunja** manages component lifetimes and dependency injection
+- **Jotai** provides reactive state with atoms and derived atoms
+- **Scoped instances** ensure each timer/countdown is independent
+
+### Key Components
 
 ```typescript
-// timer.ts
-const timerBunja = bunja(() => {
-  // Initialize timer state
-  const timer = { elapsed: 0, running: false };
+// Scoped timer state with Jotai integration
+export const timerBunja = bunja(() => {
+  const store = bunja.use(JotaiStoreScope);
 
-  // Lifetime effect - set up interval when timer starts
-  bunja.effect(() => {
-    console.log("Timer mounted");
-    return () => console.log("Timer unmounted");
+  // Reactive state with Jotai atoms
+  const timerAtom = atom({ elapsed: 0, running: false });
+
+  // Derived atoms for computed values
+  const secondsAtom = atom((get) => {
+    const { elapsed } = get(timerAtom);
+    return Math.floor(elapsed / 1000).toString().padStart(2, "0");
   });
 
-  return {
-    start: () => {/* start logic */},
-    stop: () => {/* stop logic */},
-    reset: () => {/* reset logic */},
-  };
+  // Lifetime management
+  bunja.effect(() => () => cleanup());
+
+  return { timerAtom, secondsAtom, start, stop, reset };
 });
 
-// Timer.tsx
+// Component usage
 function Timer({ id }: Props) {
-  // Separate timer instances through Scope
-  const t = useBunja(timerBunja, [TimerScope.bind(id)]);
+  const { timerAtom, secondsAtom, start, stop } = useBunja(
+    timerBunja,
+    [ItemScope.bind(id)], // Scoped dependency injection
+  );
 
-  // Subscribe to state with React 19's useSyncExternalStore
-  const snapshot = useSyncExternalStore(t.subscribe, t.getSnapshot);
+  const { running } = useAtomValue(timerAtom);
+  const seconds = useAtomValue(secondsAtom);
 
   return (
     <div>
-      <div>{formatTime(snapshot.elapsed)}</div>
-      <button onClick={t.start}>Start</button>
-      <button onClick={t.stop}>Stop</button>
-      <button onClick={t.reset}>Reset</button>
+      <div>{seconds}</div>
+      {running
+        ? <button onClick={stop}>Stop</button>
+        : <button onClick={start}>Start</button>}
     </div>
   );
 }
 ```
 
-## Core Concepts
+## 🎯 Core Concepts Demonstrated
 
-### 1. State Lifetime Management
+### 1. **Scoped Dependency Injection**
 
-Each timer is created when a component mounts and automatically cleaned up when
-it unmounts.
+Each timer/countdown gets its own isolated state through `ItemScope.bind(id)`.
 
-### 2. Scope-based Dependency Injection
+### 2. **Reactive State Management**
 
-Through `TimerScope.bind(id)`, independent state instances are created for each
-timer.
+Jotai atoms provide fine-grained reactivity with automatic dependency tracking.
 
-### 3. React 19 Compatibility
+### 3. **Derived Computations**
 
-Uses `useSyncExternalStore` for perfect compatibility with React 19's
-concurrency features.
+Time formatting logic is moved to derived atoms for better performance and
+separation of concerns.
 
-## Learning Points
+### 4. **Lifetime Management**
 
-Through this example, you can learn:
+Bunja automatically handles setup/cleanup of intervals and event listeners.
 
-- State lifetime management using Bunja
-- Dependency injection patterns through Scope
-- Integration of React 19 with external state management libraries
-- Deno 2 + Vite development environment setup
-- Type-safe state management using TypeScript
+### 5. **Sound System**
 
-## Learn More
+Global sound management with alarm functionality and snooze capability.
 
-- [Bunja Documentation](../../README.md)
+## 🎨 UI Features
+
+- **Modern Design**: Glass morphism with gradient backgrounds
+- **Smooth Animations**: CSS transitions and keyframe animations
+- **Status Indicators**: Visual feedback for running/stopped/finished states
+- **Responsive Layout**: Works on desktop and mobile devices
+- **Accessibility**: Proper semantic HTML and keyboard navigation
+
+## 📚 Learning Points
+
+This example teaches:
+
+- **Bunja + Jotai integration** for robust state management
+- **Scoped dependency injection** patterns
+- **Derived atoms** for computed values
+- **React hooks** with external state libraries
+- **TypeScript** for type-safe development
+- **Modern CSS** techniques and animations
+- **Deno 2 + Vite** development workflow
+
+## 🔗 Learn More
+
+- [Bunja Documentation](../../bunja/README.md)
+- [Jotai Documentation](https://jotai.org/)
 - [Deno Documentation](https://deno.land/)
 - [React Documentation](https://react.dev/)
 - [Vite Documentation](https://vitejs.dev/)
