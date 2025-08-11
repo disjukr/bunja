@@ -1,0 +1,21 @@
+{
+  "name": "bunja-timer-solid-example",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "bunja": "file:../../bunja",
+    "solid-js": "^1.9.7"
+  },
+  "devDependencies": {
+    "@deno/vite-plugin": "^1.0.5",
+    "typescript": "^5.6.3",
+    "vite": "^5.0.0",
+    "vite-plugin-solid": "^2.11.8"
+  }
+}
