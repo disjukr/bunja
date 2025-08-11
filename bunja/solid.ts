@@ -83,13 +83,16 @@ const defaultReadScope: ReadScope = <T>(scope: Scope<T>) => {
 
 export function useBunja<T>(
   bunja: MaybeAccessor<Bunja<T>>,
-  scopeValuePairs?: ScopeValuePair<any>[],
+  scopeValuePairs?: MaybeAccessor<ScopeValuePair<any>[]>,
 ): Accessor<T> {
   const store = useContext(BunjaStoreContext);
-  const readScope = scopeValuePairs
-    ? createReadScopeFn(scopeValuePairs, defaultReadScope)
-    : defaultReadScope;
-  const entry = createMemo(() => store.get(access(bunja), readScope));
+  const readScope = createMemo(() => {
+    const pairs = access(scopeValuePairs);
+    return pairs
+      ? createReadScopeFn(pairs, defaultReadScope)
+      : defaultReadScope;
+  });
+  const entry = createMemo(() => store.get(access(bunja), readScope()));
   createEffect(() => {
     const cleanup = entry().mount();
     onCleanup(() => setTimeout(cleanup));
