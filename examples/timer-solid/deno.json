@@ -1,0 +1,13 @@
+{
+  "imports": {
+    "solid-js": "npm:solid-js@^1.9.7",
+    "bunja": "../../bunja/bunja.ts",
+    "bunja/solid": "../../bunja/solid.ts",
+    "@deno/vite-plugin": "npm:@deno/vite-plugin@^1.0.5"
+  },
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "solid-js",
+    "lib": ["dom", "dom.iterable", "es2017"]
+  }
+}
