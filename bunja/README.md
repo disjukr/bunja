@@ -19,7 +19,7 @@ depended on somewhere in the render tree and ends when all dependencies
 disappear.
 
 Therefore, when writing a state to manage a WebSocket, you only need to create a
-function that establishes the WebSocket connection and an dispose handler that
+function that establishes the WebSocket connection and a disposal handler that
 terminates the connection.\
 The library automatically tracks the actual usage period and calls the init and
 dispose as needed.
