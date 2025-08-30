@@ -1,10 +1,3 @@
-> [!WARNING]
-> You are viewing the `v2` branch.
->
-> The current stable version is `1.x.x`.\
-> If you want to view the code for that version, please
-> [switch to the `v1` branch](https://github.com/disjukr/bunja/tree/v1).
-
 # Bunja
 
 Bunja is lightweight State Lifetime Manager.\

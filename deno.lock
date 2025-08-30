@@ -14,6 +14,7 @@
     "npm:react@19": "19.1.1",
     "npm:react@19.1.0": "19.1.0",
     "npm:solid-js@^1.9.7": "1.9.8_seroval@1.3.2",
+    "npm:tsdown@0.12.9": "0.12.9_typescript@5.9.2_rolldown@1.0.0-beta.31",
     "npm:tsdown@~0.12.7": "0.12.9_typescript@5.9.2_rolldown@1.0.0-beta.31",
     "npm:typescript@^5.6.3": "5.9.2",
     "npm:vite-plugin-solid@^2.11.8": "2.11.8_solid-js@1.9.8__seroval@1.3.2_vite@5.4.19_@babel+core@7.28.0",
