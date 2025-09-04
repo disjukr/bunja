@@ -10,6 +10,7 @@
     "npm:@types/react@19": "19.1.9",
     "npm:@vitejs/plugin-react@4": "4.7.0_vite@5.4.19_@babel+core@7.28.0",
     "npm:jotai@^2.13.0": "2.13.0_@types+react@19.1.9_react@19.1.0",
+    "npm:jotai@^2.13.1": "2.13.1_@types+react@19.1.9_react@19.1.0",
     "npm:react-dom@19.1.0": "19.1.0_react@19.1.0",
     "npm:react@19": "19.1.1",
     "npm:react@19.1.0": "19.1.0",
@@ -787,6 +788,17 @@
         "react@19.1.0"
       ]
     },
+    "jotai@2.13.1_@types+react@19.1.9_react@19.1.0": {
+      "integrity": "sha512-cRsw6kFeGC9Z/D3egVKrTXRweycZ4z/k7i2MrfCzPYsL9SIWcPXTyqv258/+Ay8VUEcihNiE/coBLE6Kic6b8A==",
+      "dependencies": [
+        "@types/react",
+        "react@19.1.0"
+      ],
+      "optionalPeers": [
+        "@types/react",
+        "react@19.1.0"
+      ]
+    },
     "js-tokens@4.0.0": {
       "integrity": "sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ=="
     },
@@ -1087,6 +1099,7 @@
         "packageJson": {
           "dependencies": [
             "npm:@types/react@19",
+            "npm:jotai@^2.13.1",
             "npm:react@19",
             "npm:solid-js@^1.9.7",
             "npm:tsdown@~0.12.7",
