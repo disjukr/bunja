@@ -71,12 +71,15 @@
   },
   "peerDependencies": {
     "@types/react": "*",
+    "jotai": ">=2",
     "react": ">=19",
-    "solid-js": "^1",
-    "jotai": ">=2"
+    "solid-js": "^1"
   },
   "peerDependenciesMeta": {
     "@types/react": {
+      "optional": true
+    },
+    "jotai": {
       "optional": true
     },
     "react": {
