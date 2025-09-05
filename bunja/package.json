@@ -36,6 +36,16 @@
         "types": "./dist/solid.d.cts",
         "default": "./dist/solid.cjs"
       }
+    },
+    "./experimental/react-jotai": {
+      "import": {
+        "types": "./dist/experimental/react-jotai.d.ts",
+        "default": "./dist/experimental/react-jotai.js"
+      },
+      "require": {
+        "types": "./dist/experimental/react-jotai.d.cts",
+        "default": "./dist/experimental/react-jotai.cjs"
+      }
     }
   },
   "typesVersions": {

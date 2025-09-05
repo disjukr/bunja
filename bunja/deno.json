@@ -5,7 +5,8 @@
   "exports": {
     ".": "./bunja.ts",
     "./react": "./react.ts",
-    "./solid": "./solid.ts"
+    "./solid": "./solid.ts",
+    "./experimental/react-jotai": "./experimental/react-jotai.ts"
   },
   "exclude": ["dist"]
 }
