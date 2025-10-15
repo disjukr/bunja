@@ -1,0 +1,54 @@
+{
+  "name": "react-bunja-devtools",
+  "type": "module",
+  "version": "0.0.1",
+  "author": "JongChan Choi <jong@chan.moe>",
+  "license": "Zlib",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/bunja.d.ts",
+        "default": "./dist/bunja.js"
+      }
+    },
+    "./brt": {
+      "import": {
+        "types": "./dist/brt.d.ts",
+        "default": "./dist/brt.js"
+      }
+    },
+    "./fiber/provider": {
+      "import": {
+        "types": "./dist/fiber/provider.d.ts",
+        "default": "./dist/fiber/provider.js"
+      }
+    }
+  },
+  "scripts": {
+    "clean": "rm -rf ./dist",
+    "build": "tsdown"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.2",
+    "@types/react-reconciler": "^0.32.1",
+    "bunja": "file:../../bunja",
+    "react": "^19.2.0",
+    "react-reconciler": "^0.33.0",
+    "tsdown": "^0.12.7",
+    "typescript": "^5.6.3"
+  },
+  "peerDependencies": {
+    "@types/react": "*",
+    "@types/react-reconciler": "*",
+    "bunja": ">=2",
+    "react": ">=19"
+  },
+  "peerDependenciesMeta": {
+    "@types/react": {
+      "optional": true
+    },
+    "@types/react-reconciler": {
+      "optional": true
+    }
+  }
+}
