@@ -5,12 +5,6 @@
   "author": "JongChan Choi <jong@chan.moe>",
   "license": "Zlib",
   "exports": {
-    ".": {
-      "import": {
-        "types": "./dist/bunja.d.ts",
-        "default": "./dist/bunja.js"
-      }
-    },
     "./brt": {
       "import": {
         "types": "./dist/brt.d.ts",
