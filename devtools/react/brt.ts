@@ -1,4 +1,4 @@
-import type { Bunja, ScopeValuePair } from "@disjukr/bunja";
+import type { Bunja, ScopeValuePair } from "bunja";
 import type { Context, PropsWithChildren } from "react";
 
 import type { Fiber } from "./fiber/provider.tsx";

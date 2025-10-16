@@ -16,6 +16,12 @@
         "types": "./dist/fiber/provider.d.ts",
         "default": "./dist/fiber/provider.js"
       }
+    },
+    "./hook": {
+      "import": {
+        "types": "./dist/hook.d.ts",
+        "default": "./dist/hook.js"
+      }
     }
   },
   "scripts": {
