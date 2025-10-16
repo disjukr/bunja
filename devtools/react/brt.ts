@@ -32,7 +32,7 @@ export function BrtIgnore({ children }: PropsWithChildren) {
 }
 
 export function toBunjaRenderTree(fiber: Fiber): BrtNode[] {
-  const result = traverse(fiber);
+  const result = postCollapseContexts(traverse(fiber));
   writeNo(result);
   return result;
   function traverse(fiber: Fiber): BrtNode[] {
@@ -77,6 +77,18 @@ export function toBunjaRenderTree(fiber: Fiber): BrtNode[] {
       if (curr?.sibling) break;
     }
     return { contexts, next: curr };
+  }
+  function postCollapseContexts(brt: BrtNode[]): BrtNode[] {
+    return brt.map((node) => {
+      node.children = postCollapseContexts(node.children);
+      if (node.type !== "context") return node;
+      if (node.children.length > 1) return node;
+      const child = node.children[0];
+      if (child.type !== "context") return node;
+      node.contexts.push(...child.contexts);
+      node.children = child.children;
+      return node;
+    });
   }
   function writeNo(nodes: BrtNode[], start: number = 1): number {
     let curr = start;
