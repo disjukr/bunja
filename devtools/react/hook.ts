@@ -1,3 +1,4 @@
+import "bunja"; // ensure hook is installed
 import type { BunjaDevtoolsGlobalHook } from "bunja";
 
 export function getHook(): BunjaDevtoolsGlobalHook | undefined {
