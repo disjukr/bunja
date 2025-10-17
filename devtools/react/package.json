@@ -1,7 +1,7 @@
 {
   "name": "react-bunja-devtools",
   "type": "module",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "author": "JongChan Choi <jong@chan.moe>",
   "license": "Zlib",
   "exports": {
@@ -15,6 +15,12 @@
       "import": {
         "types": "./dist/fiber/provider.d.ts",
         "default": "./dist/fiber/provider.js"
+      }
+    },
+    "./hook": {
+      "import": {
+        "types": "./dist/hook.d.ts",
+        "default": "./dist/hook.js"
       }
     }
   },

@@ -1,4 +1,4 @@
-import type { Bunja, ScopeValuePair } from "@disjukr/bunja";
+import type { Bunja, BunjaEffectCallback, ScopeValuePair } from "bunja";
 import type { Context, PropsWithChildren } from "react";
 
 import type { Fiber } from "./fiber/provider.tsx";
@@ -6,10 +6,15 @@ import { ContextProvider } from "./fiber/tag.ts";
 
 export type ContextValuePair = [Context<unknown>, unknown];
 export type BrtNode = BrtComponent | BrtContext;
+export interface BunjaInstance {
+  id: string;
+  value: unknown;
+  effect: BunjaEffectCallback;
+}
 export interface BunjaHookValue {
   bunja: Bunja<unknown>;
   scopeValuePairs: ScopeValuePair<unknown>[];
-  bunjaInstance: unknown;
+  bunjaInstance: BunjaInstance;
 }
 interface BrtBase {
   no: number;
@@ -32,7 +37,7 @@ export function BrtIgnore({ children }: PropsWithChildren) {
 }
 
 export function toBunjaRenderTree(fiber: Fiber): BrtNode[] {
-  const result = traverse(fiber);
+  const result = postCollapseContexts(traverse(fiber));
   writeNo(result);
   return result;
   function traverse(fiber: Fiber): BrtNode[] {
@@ -77,6 +82,18 @@ export function toBunjaRenderTree(fiber: Fiber): BrtNode[] {
       if (curr?.sibling) break;
     }
     return { contexts, next: curr };
+  }
+  function postCollapseContexts(brt: BrtNode[]): BrtNode[] {
+    return brt.map((node) => {
+      node.children = postCollapseContexts(node.children);
+      if (node.type !== "context") return node;
+      if (node.children.length > 1) return node;
+      const child = node.children[0];
+      if (child.type !== "context") return node;
+      node.contexts.push(...child.contexts);
+      node.children = child.children;
+      return node;
+    });
   }
   function writeNo(nodes: BrtNode[], start: number = 1): number {
     let curr = start;
