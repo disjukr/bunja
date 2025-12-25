@@ -11,6 +11,7 @@ import {
   useState,
 } from "react";
 import {
+  bunja as bunjaFn,
   type Bunja,
   type BunjaStore,
   createBunjaStore,
@@ -67,6 +68,9 @@ export function useBunja<T>(
     ? createReadScopeFn(scopeValuePairs, defaultReadScope)
     : defaultReadScope;
   if (__DEV__) {
+    if (store._internalState?.instantiating) {
+      throw new Error("`useBunja` cannot be called inside a bunja init function.")
+    }
     const { value, mount, deps, bunjaInstance } = store.get(bunja, readScope);
     useEffect(delayUnmount(mount), deps);
     useMemo(
