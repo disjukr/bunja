@@ -11,7 +11,6 @@ import {
   useState,
 } from "react";
 import {
-  bunja as bunjaFn,
   type Bunja,
   type BunjaStore,
   createBunjaStore,

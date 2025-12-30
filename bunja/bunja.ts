@@ -84,7 +84,6 @@ export class BunjaStore {
   #bunjas: Record<string, BunjaInstance> = {};
   #scopes: Map<Scope<unknown>, Map<unknown, ScopeInstance>> = new Map();
   #bakingContext: BunjaBakingContext | undefined;
-  #instantiating: boolean = false;
   wrapInstance: WrapInstanceFn = defaultWrapInstanceFn;
   constructor() {
     if (__DEV__) {
@@ -93,7 +92,15 @@ export class BunjaStore {
     }
   }
   get _internalState(): InternalState | undefined {
-    if (__DEV__) return { bunjas: this.#bunjas, scopes: this.#scopes, instantiating: this.#instantiating };
+    if (__DEV__) {
+      return {
+        bunjas: this.#bunjas,
+        scopes: this.#scopes,
+        get instantiating() {
+          return bunja.use != invalidUse;
+        },
+      };
+    }
     return undefined;
   }
   dispose(): void {
@@ -217,7 +224,6 @@ export class BunjaStore {
     bunja: Bunja<T>,
     scopeInstanceMap: ScopeInstanceMap,
   ): BunjaInstance {
-    this.#instantiating = true;
     const originalEffect = bunjaFn.effect;
     const originalFork = bunjaFn.fork;
     const prevBunja = this.#bakingContext?.currentBunja;
@@ -249,7 +255,6 @@ export class BunjaStore {
         });
       }
     } finally {
-      this.#instantiating = false;
       bunjaFn.effect = originalEffect;
       bunjaFn.fork = originalFork;
       if (this.#bakingContext) this.#bakingContext.currentBunja = prevBunja!;
