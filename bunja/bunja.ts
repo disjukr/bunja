@@ -68,6 +68,7 @@ type ScopeInstanceMap = Map<Scope<unknown>, ScopeInstance>;
 interface InternalState {
   bunjas: Record<string, BunjaInstance>;
   scopes: Map<Scope<unknown>, Map<unknown, ScopeInstance>>;
+  instantiating: boolean;
 }
 
 interface BunjaBakingContext {
@@ -91,7 +92,15 @@ export class BunjaStore {
     }
   }
   get _internalState(): InternalState | undefined {
-    if (__DEV__) return { bunjas: this.#bunjas, scopes: this.#scopes };
+    if (__DEV__) {
+      return {
+        bunjas: this.#bunjas,
+        scopes: this.#scopes,
+        get instantiating() {
+          return bunja.use != invalidUse;
+        },
+      };
+    }
     return undefined;
   }
   dispose(): void {
