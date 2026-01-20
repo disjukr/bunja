@@ -61,6 +61,11 @@
   ],
   "author": "JongChan Choi <jong@chan.moe>",
   "license": "Zlib",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/disjukr/bunja.git",
+    "directory": "bunja"
+  },
   "devDependencies": {
     "@types/react": "^19",
     "react": "^19",
