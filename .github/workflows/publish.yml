@@ -1,0 +1,64 @@
+name: Publish
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Update version in package.json and deno.json
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "Updating version to $VERSION"
+
+          # Update package.json
+          deno eval "
+            const packageJson = JSON.parse(Deno.readTextFileSync('package.json'));
+            packageJson.version = '$VERSION';
+            Deno.writeTextFileSync('package.json', JSON.stringify(packageJson, null, 2) + '\n');
+          "
+
+          # Update deno.json
+          deno eval "
+            const denoJson = JSON.parse(Deno.readTextFileSync('deno.json'));
+            denoJson.version = '$VERSION';
+            Deno.writeTextFileSync('deno.json', JSON.stringify(denoJson, null, 2) + '\n');
+          "
+        working-directory: ./bunja
+
+      - name: Install dependencies
+        run: deno install
+        working-directory: ./bunja
+
+      - name: Build for npm
+        run: deno task build
+        working-directory: ./bunja
+
+      - name: Publish to npm
+        run: npm publish --provenance --access public
+        working-directory: ./bunja
+
+      - name: Publish to JSR
+        run: deno publish
+        working-directory: ./bunja
