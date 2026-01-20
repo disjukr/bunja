@@ -70,7 +70,7 @@
   },
   "peerDependencies": {
     "@types/react": "*",
-    "react": ">=19",
+    "react": ">=18",
     "solid-js": "^1"
   },
   "peerDependenciesMeta": {
