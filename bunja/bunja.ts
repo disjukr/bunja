@@ -363,7 +363,12 @@ export class Bunja<T> {
   readonly id: string = String(Bunja.counter++);
   debugLabel: string = "";
   #phase: BunjaPhase = { baked: false, parents: new Set(), scopes: new Set() };
-  constructor(public init: () => T) {}
+  constructor(public init: () => T) {
+    if (__DEV__) {
+      devtoolsGlobalHook.bunjas[this.id] = this;
+      devtoolsGlobalHook.emit("bunjaCreated", { bunjaId: this.id });
+    }
+  }
   get baked(): boolean {
     return this.#phase.baked;
   }
@@ -431,7 +436,12 @@ export class Scope<T> {
   private static counter: number = 0;
   readonly id: string = String(Scope.counter++);
   debugLabel: string = "";
-  constructor(public readonly hash: HashFn<T> = Scope.identity) {}
+  constructor(public readonly hash: HashFn<T> = Scope.identity) {
+    if (__DEV__) {
+      devtoolsGlobalHook.scopes[this.id] = this;
+      devtoolsGlobalHook.emit("scopeCreated", { scopeId: this.id });
+    }
+  }
   private static identity<T>(x: T): T {
     return x;
   }
@@ -512,6 +522,8 @@ function toposort<T extends Toposortable>(nodes: T[]): T[] {
 const noop = () => {};
 
 export interface BunjaDevtoolsGlobalHook {
+  bunjas: Record<string, Bunja<any>>;
+  scopes: Record<string, Scope<any>>;
   stores: Record<string, BunjaStore>;
   listeners: Record<
     BunjaDevtoolsEventType,
@@ -527,6 +539,8 @@ export interface BunjaDevtoolsGlobalHook {
   ): () => void;
 }
 export interface BunjaDevtoolsEvent {
+  bunjaCreated: { bunjaId: string };
+  scopeCreated: { scopeId: string };
   storeCreated: { storeId: string };
   storeDisposed: { storeId: string };
   getCalled: { storeId: string; bunjaInstanceId: string };
@@ -551,7 +565,11 @@ if (__DEV__) {
   } else {
     devtoolsGlobalHook = {
       stores: {},
+      bunjas: {},
+      scopes: {},
       listeners: {
+        bunjaCreated: new Set(),
+        scopeCreated: new Set(),
         storeCreated: new Set(),
         storeDisposed: new Set(),
         getCalled: new Set(),
