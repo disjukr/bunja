@@ -60,5 +60,5 @@ jobs:
         working-directory: ./bunja
 
       - name: Publish to JSR
-        run: deno publish
+        run: deno publish --allow-dirty
         working-directory: ./bunja
