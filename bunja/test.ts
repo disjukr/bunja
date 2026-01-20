@@ -1,5 +1,5 @@
-import { assertEquals } from "jsr:@std/assert";
-import { assertSpyCalls, spy } from "jsr:@std/testing/mock";
+import { assertEquals } from "@std/assert";
+import { assertSpyCalls, spy } from "@std/testing/mock";
 
 import { bunja, createBunjaStore, createScope } from "./bunja.ts";
 

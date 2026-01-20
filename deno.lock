@@ -2,9 +2,11 @@
   "version": "5",
   "specifiers": {
     "jsr:@std/assert@*": "1.0.13",
+    "jsr:@std/assert@1": "1.0.13",
     "jsr:@std/assert@^1.0.13": "1.0.13",
     "jsr:@std/internal@^1.0.6": "1.0.10",
     "jsr:@std/testing@*": "1.0.15",
+    "jsr:@std/testing@1": "1.0.15",
     "npm:@deno/vite-plugin@^1.0.5": "1.0.5_vite@5.4.20",
     "npm:@types/react-dom@19": "19.2.2_@types+react@19.2.2",
     "npm:@types/react-reconciler@~0.32.1": "0.32.1_@types+react@19.2.2",
@@ -1119,6 +1121,10 @@
   "workspace": {
     "members": {
       "bunja": {
+        "dependencies": [
+          "jsr:@std/assert@1",
+          "jsr:@std/testing@1"
+        ],
         "packageJson": {
           "dependencies": [
             "npm:@types/react@19",
