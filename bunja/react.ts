@@ -5,7 +5,7 @@ import {
   createContext,
   createElement,
   type PropsWithChildren,
-  use,
+  useContext,
   useEffect,
   useMemo,
   useState,
@@ -36,7 +36,7 @@ export function BunjaStoreProvider(
 ): React.JSX.Element {
   const [value] = useState(createBunjaStore);
   useEffect(() => () => value.dispose(), [value]);
-  return createElement(BunjaStoreContext, { value, children });
+  return createElement(BunjaStoreContext.Provider, { value, children });
 }
 
 export const scopeContextMap: Map<Scope<unknown>, Context<unknown>> = new Map();
@@ -55,20 +55,22 @@ export function createScopeFromContext<T>(
 
 const defaultReadScope: ReadScope = <T>(scope: Scope<T>) => {
   const context = scopeContextMap.get(scope as Scope<unknown>)!;
-  return use(context) as T;
+  return useContext(context) as T;
 };
 
 export function useBunja<T>(
   bunja: Bunja<T>,
   scopeValuePairs?: ScopeValuePair<any>[],
 ): T {
-  const store = use(BunjaStoreContext);
+  const store = useContext(BunjaStoreContext);
   const readScope = scopeValuePairs
     ? createReadScopeFn(scopeValuePairs, defaultReadScope)
     : defaultReadScope;
   if (__DEV__) {
     if (store._internalState?.instantiating) {
-      throw new Error("`useBunja` cannot be called inside a bunja init function.")
+      throw new Error(
+        "`useBunja` cannot be called inside a bunja init function.",
+      );
     }
     const { value, mount, deps, bunjaInstance } = store.get(bunja, readScope);
     useEffect(delayUnmount(mount), deps);
