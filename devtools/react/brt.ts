@@ -18,8 +18,8 @@ export interface BunjaHookValue {
 }
 interface BrtBase {
   no: number;
-  key: string | null;
   name: string;
+  fiber: Fiber;
 }
 export interface BrtComponent extends BrtBase {
   type: "component";
@@ -42,19 +42,18 @@ export function toBunjaRenderTree(fiber: Fiber): BrtNode[] {
   return result;
   function traverse(fiber: Fiber): BrtNode[] {
     if (fiber.type === BrtIgnore) return [];
-    const key = fiber.key;
     const name = getFiberName(fiber);
     if (fiber.tag === ContextProvider) {
       const { contexts, next } = collapseContexts(fiber);
       const children = traverseChildren(next);
       if (children.length === 0) return [];
-      return [{ type: "context", no: 0, key, name, contexts, children }];
+      return [{ type: "context", no: 0, name, fiber, contexts, children }];
     }
     const children = traverseChildren(fiber.child);
     const isUsingBunja = checkUsingBunja(fiber);
     if (!isUsingBunja) return children;
     const bunjaHooks = collectBunjaHooks(fiber);
-    return [{ type: "component", no: 0, key, name, bunjaHooks, children }];
+    return [{ type: "component", no: 0, name, fiber, bunjaHooks, children }];
   }
   function traverseChildren(child?: Fiber | null): BrtNode[] {
     const result: BrtNode[] = [];
