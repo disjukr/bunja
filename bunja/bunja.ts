@@ -86,10 +86,7 @@ export class BunjaStore {
   #bakingContext: BunjaBakingContext | undefined;
   wrapInstance: WrapInstanceFn = defaultWrapInstanceFn;
   constructor() {
-    if (__DEV__) {
-      devtoolsGlobalHook.stores[this.id] = this;
-      devtoolsGlobalHook.emit("storeCreated", { storeId: this.id });
-    }
+    if (__DEV__) devtoolsGlobalHook.emit("storeCreated", { storeId: this.id });
   }
   get _internalState(): InternalState | undefined {
     if (__DEV__) {
@@ -110,10 +107,7 @@ export class BunjaStore {
     }
     this.#bunjas = {};
     this.#scopes = new Map();
-    if (__DEV__) {
-      devtoolsGlobalHook.emit("storeDisposed", { storeId: this.id });
-      delete devtoolsGlobalHook.stores[this.id];
-    }
+    if (__DEV__) devtoolsGlobalHook.emit("storeDisposed", { storeId: this.id });
   }
   get<T>(bunja: Bunja<T>, readScope: ReadScope): BunjaStoreGetResult<T> {
     const originalUse = bunjaFn.use;
@@ -524,7 +518,6 @@ const noop = () => {};
 export interface BunjaDevtoolsGlobalHook {
   bunjas: Record<string, Bunja<any>>;
   scopes: Record<string, Scope<any>>;
-  stores: Record<string, BunjaStore>;
   listeners: Record<
     BunjaDevtoolsEventType,
     Set<(event: any) => void>
@@ -564,7 +557,6 @@ if (__DEV__) {
     devtoolsGlobalHook = (globalThis as any).__BUNJA_DEVTOOLS_GLOBAL_HOOK__;
   } else {
     devtoolsGlobalHook = {
-      stores: {},
       bunjas: {},
       scopes: {},
       listeners: {
