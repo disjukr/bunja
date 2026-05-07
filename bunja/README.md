@@ -264,12 +264,13 @@ or debugging code to visit those declared dependencies and fill in the graph.
 
 Prebaking runs bunja init functions in a dry graph-collection mode. It does not
 create ref-counted bunja instances, it does not mount dependencies, and it does
-not run `bunja.effect` callbacks.
+not run `bunja.effect` callbacks. Prebake still calls bunja init functions, so
+put external resource creation and subscriptions inside `bunja.effect` if they
+must not run during graph collection.
 
-`store.prebake` does not accept a seed for the root bunja. Dry-run values use
-each bunja's declared default seed, including dependencies reached through
-seeded refs. Keep external side effects inside `bunja.effect` so prebaking stays
-safe.
+`store.prebake` rejects root bunja refs that provide a seed. During dry-run
+initialization, bunja refs are converted to graph refs, so every prebaked bunja
+is initialized with its declared default seed.
 
 ```ts
 const result = store.prebake(selectedResourceBunja, readScope);

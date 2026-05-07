@@ -141,7 +141,12 @@ interface BunjaInitFrame extends BunjaFrame {
 interface BunjaPrebakeFrame extends BunjaFrame {
   currentBunja: AnyBunja;
   readScope: ReadScope;
+  prebakeContext: BunjaPrebakeContext;
+}
+
+interface BunjaPrebakeContext {
   inProgressBunjas: Set<AnyBunja>;
+  values: Map<AnyBunja, unknown>;
 }
 
 type AnyNormalizedBunjaRef = NormalizedBunjaRef<any, any>;
@@ -277,6 +282,13 @@ function addUniqueBunjaRef(
   if (!refs.includes(ref)) refs.push(ref);
 }
 
+function createBunjaPrebakeContext(): BunjaPrebakeContext {
+  return {
+    inProgressBunjas: new Set(),
+    values: new Map(),
+  };
+}
+
 export class BunjaStore {
   private static counter: number = 0;
   readonly id: string = String(BunjaStore.counter++);
@@ -337,15 +349,14 @@ export class BunjaStore {
   prebake<T, Seed>(
     bunjaOrRef: Bunja<T, Seed> | BunjaPrebakeRef<T, Seed>,
     readScope: ReadScope,
-  ): BunjaStorePrebakeResult<T> {
+  ): BunjaStorePrebakeResult {
     const bunjaRef = normalizeBunjaPrebakeRef(bunjaOrRef);
-    const value = this.#prebakeBunjaRef(
+    this.#prebakeBunjaRef(
       bunjaRef,
       readScope,
-      new Set(),
+      createBunjaPrebakeContext(),
     );
     return {
-      value,
       relatedBunjas: bunjaRef.bunja.relatedBunjas,
       requiredScopes: bunjaRef.bunja.requiredScopes,
     };
@@ -654,9 +665,13 @@ export class BunjaStore {
   #prebakeBunjaRef<T, Seed>(
     bunjaRef: NormalizedBunjaRef<T, Seed>,
     readScope: ReadScope,
-    inProgressBunjas: Set<AnyBunja>,
+    prebakeContext: BunjaPrebakeContext,
   ): T {
     const { bunja } = bunjaRef;
+    if (prebakeContext.values.has(bunja)) {
+      return prebakeContext.values.get(bunja) as T;
+    }
+    const { inProgressBunjas } = prebakeContext;
     if (inProgressBunjas.has(bunja)) {
       throw new Error("Circular bunja dependency detected.");
     }
@@ -670,7 +685,7 @@ export class BunjaStore {
           const frame = this.#createPrebakeFrame(
             bunja,
             resolvedReadScope,
-            inProgressBunjas,
+            prebakeContext,
           );
           const value = runWithFrame(
             frame,
@@ -682,7 +697,8 @@ export class BunjaStore {
               ...bunja.requiredBunjaRefs,
               ...bunja.optionalBunjaRefs,
             ]
-          ) this.#prebakeBunjaRef(ref, resolvedReadScope, inProgressBunjas);
+          ) this.#prebakeBunjaRef(ref, resolvedReadScope, prebakeContext);
+          prebakeContext.values.set(bunja, value);
           return value;
         } finally {
           dispose();
@@ -695,12 +711,12 @@ export class BunjaStore {
   #createPrebakeFrame(
     currentBunja: AnyBunja,
     readScope: ReadScope,
-    inProgressBunjas: Set<AnyBunja>,
+    prebakeContext: BunjaPrebakeContext,
   ): BunjaPrebakeFrame {
     const frame = {
       currentBunja,
       readScope,
-      inProgressBunjas,
+      prebakeContext,
       use: ((dep: unknown, scopeValuePairs?: ScopeValuePairs) => {
         if (dep instanceof Scope) {
           if (!currentBunja.baked) {
@@ -729,7 +745,7 @@ export class BunjaStore {
         const value = this.#prebakeBunjaRef(
           bunjaRef,
           readScope,
-          inProgressBunjas,
+          prebakeContext,
         );
         return () => {
           if (frameStack[frameStack.length - 1] !== frame) {
@@ -757,7 +773,7 @@ export class BunjaStore {
     return this.#prebakeBunjaRef(
       bunjaRef,
       frame.readScope,
-      frame.inProgressBunjas,
+      frame.prebakeContext,
     );
   }
   #resolveScopeInstanceMap(
@@ -880,8 +896,7 @@ export interface BunjaStoreGetResult<T> {
   bunjaInstance?: BunjaInstance;
 }
 
-export interface BunjaStorePrebakeResult<T> {
-  value: T;
+export interface BunjaStorePrebakeResult {
   relatedBunjas: Bunja<any, any>[];
   requiredScopes: Scope<unknown>[];
 }

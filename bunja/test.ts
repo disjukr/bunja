@@ -335,21 +335,24 @@ Deno.test({
 });
 
 Deno.test({
-  name: "prebake cannot provide seed and uses the default seed",
+  name: "prebake rejects root seed and initializes with default seed",
   fn() {
     const store = createBunjaStore();
-    const myBunja = bunja.withSeed({ value: "default" }, (seed) => seed.value);
+    const usedSeeds: string[] = [];
+    const myBunja = bunja.withSeed({ value: "default" }, (seed) => {
+      usedSeeds.push(seed.value);
+      return seed.value;
+    });
     const myRef: BunjaRef<string, { value: string }> = {
       bunja: myBunja,
       seed: { value: "custom" },
     };
     const consumerBunja = bunja(() => bunja.use(myRef));
 
-    const prebaked = store.prebake(myBunja, readNull);
-    const prebakedConsumer = store.prebake(consumerBunja, readNull);
+    store.prebake(myBunja, readNull);
+    store.prebake(consumerBunja, readNull);
 
-    assertEquals(prebaked.value, "default");
-    assertEquals(prebakedConsumer.value, "default");
+    assertEquals(usedSeeds, ["default", "default"]);
     assertEquals("seed" in consumerBunja.requiredBunjaRefs[0], false);
     assertThrows(
       () => {
@@ -456,7 +459,6 @@ Deno.test({
 
     const prebaked = store.prebake(consumerBunja, readNull);
 
-    assertEquals(prebaked.value, "consumer");
     assertEquals(prebaked.relatedBunjas, [
       grandparentDependencyBunja,
       parentDependencyBunja,
@@ -468,6 +470,38 @@ Deno.test({
     assertSpyCalls(grandparentDependencyMountSpy, 0);
 
     cleanup();
+  },
+});
+
+Deno.test({
+  name: "prebake runs each dependency once per traversal",
+  fn() {
+    const store = createBunjaStore();
+    const requiredInitSpy = spy();
+    const optionalInitSpy = spy();
+    const requiredDependencyBunja = bunja(() => {
+      requiredInitSpy();
+      return "required";
+    });
+    const optionalDependencyBunja = bunja(() => {
+      optionalInitSpy();
+      return "optional";
+    });
+    const consumerBunja = bunja(() => {
+      const required = bunja.use(requiredDependencyBunja);
+      const getOptional = bunja.will(optionalDependencyBunja);
+      return `${required}:${getOptional()}`;
+    });
+
+    store.prebake(consumerBunja, readNull);
+
+    assertSpyCalls(requiredInitSpy, 1);
+    assertSpyCalls(optionalInitSpy, 1);
+
+    store.prebake(consumerBunja, readNull);
+
+    assertSpyCalls(requiredInitSpy, 2);
+    assertSpyCalls(optionalInitSpy, 2);
   },
 });
 
@@ -484,9 +518,8 @@ Deno.test({
     });
     const myBunja = bunja(() => "value");
 
-    const prebaked = store.prebake(myBunja, readNull);
+    store.prebake(myBunja, readNull);
 
-    assertEquals(prebaked.value, "value");
     assertEquals(wrapCalls, 1);
     assertSpyCalls(disposeSpy, 1);
   },
