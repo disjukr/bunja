@@ -56,7 +56,16 @@ jobs:
         working-directory: ./bunja
 
       - name: Publish to npm
-        run: npm publish --provenance --access public
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          NPM_TAG=latest
+
+          if [[ "$VERSION" == *-* ]]; then
+            NPM_TAG=${VERSION#*-}
+            NPM_TAG=${NPM_TAG%%.*}
+          fi
+
+          npm publish --provenance --access public --tag "$NPM_TAG"
         working-directory: ./bunja
 
       - name: Publish to JSR
