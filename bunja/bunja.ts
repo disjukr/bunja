@@ -3,24 +3,76 @@
 const __DEV__ = process.env.NODE_ENV !== "production";
 
 export interface BunjaFn {
-  <T>(init: () => T): Bunja<T>;
+  <T>(init: () => T): Bunja<T, NoSeed>;
+  withSeed: BunjaWithSeedFn;
   use: BunjaUseFn;
-  fork: BunjaForkFn;
+  will: BunjaWillFn;
   effect: BunjaEffectFn;
 }
 export const bunja: BunjaFn = bunjaFn;
-function bunjaFn<T>(init: () => T): Bunja<T> {
-  return new Bunja(init);
+function bunjaFn<T>(init: () => T): Bunja<T, NoSeed> {
+  return new Bunja(() => init(), NO_SEED);
 }
-bunjaFn.use = invalidUse as BunjaUseFn;
-bunjaFn.fork = invalidFork as BunjaForkFn;
-bunjaFn.effect = invalidEffect as BunjaEffectFn;
+const NO_SEED = Symbol("bunja.noSeed");
+export type NoSeed = typeof NO_SEED;
+bunjaFn.withSeed = function withSeed<Seed, T>(
+  defaultSeed: Seed,
+  init: (seed: Seed) => T,
+): Bunja<T, Seed> {
+  return new Bunja(init, defaultSeed);
+};
+bunjaFn.use =
+  ((dep: unknown, scopeValuePairs?: ScopeValuePairs) =>
+    (getCurrentFrame("`bunja.use`").use as (
+      dep: unknown,
+      scopeValuePairs?: ScopeValuePairs,
+    ) => unknown)(
+      dep,
+      scopeValuePairs,
+    )) as BunjaUseFn;
+bunjaFn.will =
+  ((dep: unknown, scopeValuePairs?: ScopeValuePairs) =>
+    (getCurrentFrame("`bunja.will`").will as (
+      dep: unknown,
+      scopeValuePairs?: ScopeValuePairs,
+    ) => unknown)(
+      dep,
+      scopeValuePairs,
+    )) as BunjaWillFn;
+bunjaFn.effect =
+  ((callback: BunjaEffectCallback) =>
+    getCurrentFrame("`bunja.effect`").effect(callback)) as BunjaEffectFn;
 
-export type BunjaUseFn = <T>(dep: Dep<T>) => T;
-export type BunjaForkFn = <T>(
-  bunja: Bunja<T>,
-  scopeValuePairs: ScopeValuePair<any>[],
-) => T;
+export type BunjaWithSeedFn = <Seed, T>(
+  defaultSeed: Seed,
+  init: (seed: Seed) => T,
+) => Bunja<T, Seed>;
+export type ScopeValuePairs = ScopeValuePair<any>[];
+type BunjaRefBase<T, Seed> = {
+  bunja: Bunja<T, Seed>;
+  with?: ScopeValuePairs;
+};
+export type BunjaGetRef<T, Seed = NoSeed> =
+  & BunjaRefBase<T, Seed>
+  & ([Seed] extends [NoSeed] ? { seed?: never } : { seed?: Seed });
+export type BunjaRef<T, Seed = NoSeed> = BunjaGetRef<T, Seed>;
+type BunjaPrebakeRef<T, Seed = NoSeed> = BunjaRefBase<T, Seed> & {
+  seed?: never;
+};
+export interface BunjaUseFn {
+  <T>(dep: Scope<T>): T;
+  <T, Seed>(dep: Bunja<T, Seed>): T;
+  <T, Seed>(bunja: Bunja<T, Seed>, scopeValuePairs: ScopeValuePairs): T;
+  <T, Seed>(ref: BunjaRef<T, Seed>): T;
+}
+export interface BunjaWillFn {
+  <T, Seed>(dep: Bunja<T, Seed>): () => T;
+  <T, Seed>(
+    bunja: Bunja<T, Seed>,
+    scopeValuePairs: ScopeValuePairs,
+  ): () => T;
+  <T, Seed>(ref: BunjaRef<T, Seed>): () => T;
+}
 export type BunjaEffectFn = (callback: BunjaEffectCallback) => void;
 export type BunjaEffectCallback = () => (() => void) | void;
 
@@ -38,32 +90,35 @@ export function createBunjaStore(config?: CreateBunjaStoreConfig): BunjaStore {
   return store;
 }
 
-export type Dep<T> = Bunja<T> | Scope<T>;
+export type Dep<T> = Bunja<T, any> | Scope<T>;
 
-function invalidUse() {
-  throw new Error(
-    "`bunja.use` can only be used inside a bunja init function.",
-  );
-}
-function invalidFork() {
-  throw new Error(
-    "`bunja.fork` can only be used inside a bunja init function.",
-  );
-}
-function invalidEffect() {
-  throw new Error(
-    "`bunja.effect` can only be used inside a bunja init function.",
-  );
-}
-
-interface BunjaStoreGetContext {
-  bunjaInstance: BunjaInstance;
-  bunjaInstanceMap: BunjaInstanceMap;
-  scopeInstanceMap: ScopeInstanceMap;
-}
-
-type BunjaInstanceMap = Map<Bunja<unknown>, BunjaInstance>;
+type AnyBunja = Bunja<any, any>;
 type ScopeInstanceMap = Map<Scope<unknown>, ScopeInstance>;
+type BunjaDependencyEdge = "required" | "optional";
+
+interface BunjaFrame {
+  use: BunjaUseFn;
+  will: BunjaWillFn;
+  effect: BunjaEffectFn;
+}
+
+const frameStack: BunjaFrame[] = [];
+function getCurrentFrame(api: string): BunjaFrame {
+  const frame = frameStack[frameStack.length - 1];
+  if (!frame) {
+    throw new Error(`${api} can only be used inside a bunja init function.`);
+  }
+  return frame;
+}
+
+function runWithFrame<T>(frame: BunjaFrame, fn: () => T): T {
+  frameStack.push(frame);
+  try {
+    return fn();
+  } finally {
+    frameStack.pop();
+  }
+}
 
 interface InternalState {
   bunjas: Record<string, BunjaInstance>;
@@ -71,19 +126,163 @@ interface InternalState {
   instantiating: boolean;
 }
 
-interface BunjaBakingContext {
-  currentBunja: Bunja<unknown>;
+interface BunjaInitFrame extends BunjaFrame {
+  currentBunja: AnyBunja;
+  readScope: ReadScope;
+  scopeInstanceMap: ScopeInstanceMap;
+  inProgressBunjas: Set<AnyBunja>;
+  effects: BunjaEffectCallback[];
+  activeDependencyIds: Set<string>;
+  activeDependencyRecipes: ActiveDependencyRecipe[];
+  activeDependencyMounts: Map<string, () => () => void>;
+  activeDependencyDeps: ScopeInstance[];
+}
+
+interface BunjaPrebakeFrame extends BunjaFrame {
+  currentBunja: AnyBunja;
+  readScope: ReadScope;
+  inProgressBunjas: Set<AnyBunja>;
+}
+
+type AnyNormalizedBunjaRef = NormalizedBunjaRef<any, any>;
+interface NormalizedBunjaRef<T, Seed> {
+  bunja: Bunja<T, Seed>;
+  scopeValuePairs: ScopeValuePairs;
+}
+
+interface NormalizedBunjaRuntimeRef<T, Seed>
+  extends NormalizedBunjaRef<T, Seed> {
+  seed: Seed;
+}
+
+interface ActiveDependencyRecipe {
+  ref: AnyNormalizedBunjaRef;
+  seed: unknown;
+}
+
+interface BunjaInstanceRecipe {
+  activeDependencies: ActiveDependencyRecipe[];
+}
+
+interface ResolvedBunja<T> {
+  value: T;
+  instance: BunjaInstance;
+  mount: () => () => void;
+  deps: ScopeInstance[];
+}
+
+interface ResolvedActiveDependencyRecipe {
+  activeDependencyIds: Set<string>;
+  deps: ScopeInstance[];
 }
 
 export type WrapInstanceFn = <T>(fn: (dispose: () => void) => T) => T;
 const defaultWrapInstanceFn: WrapInstanceFn = (fn) => fn(noop);
 
+function normalizeBunjaRuntimeRef<T, Seed>(
+  bunjaOrRef: Bunja<T, Seed> | BunjaRef<T, Seed>,
+  scopeValuePairs: ScopeValuePairs = [],
+): NormalizedBunjaRuntimeRef<T, Seed> {
+  if (bunjaOrRef instanceof Bunja) {
+    return {
+      bunja: bunjaOrRef,
+      scopeValuePairs,
+      seed: bunjaOrRef.defaultSeed,
+    };
+  }
+  const { bunja, with: refScopeValuePairs = [] } = bunjaOrRef;
+  return {
+    bunja,
+    scopeValuePairs: refScopeValuePairs,
+    seed: "seed" in bunjaOrRef ? (bunjaOrRef.seed as Seed) : bunja.defaultSeed,
+  };
+}
+
+function normalizeBunjaPrebakeRef<T, Seed>(
+  bunjaOrRef: Bunja<T, Seed> | BunjaPrebakeRef<T, Seed>,
+): NormalizedBunjaRef<T, Seed> {
+  if (bunjaOrRef instanceof Bunja) {
+    return {
+      bunja: bunjaOrRef,
+      scopeValuePairs: [],
+    };
+  }
+  if ("seed" in bunjaOrRef) {
+    throw new Error("A bunja seed cannot be provided to `store.prebake`.");
+  }
+  const { bunja, with: refScopeValuePairs = [] } = bunjaOrRef;
+  return {
+    bunja,
+    scopeValuePairs: refScopeValuePairs,
+  };
+}
+
+function toBunjaGraphRef<T, Seed>(
+  bunjaRef: NormalizedBunjaRef<T, Seed>,
+): NormalizedBunjaRef<T, Seed> {
+  return {
+    bunja: bunjaRef.bunja,
+    scopeValuePairs: bunjaRef.scopeValuePairs,
+  };
+}
+
+function isBunjaRef(value: unknown): value is BunjaRef<any, any> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "bunja" in value &&
+    (value as { bunja: unknown }).bunja instanceof Bunja
+  );
+}
+
+function getBoundScopeSet(
+  scopeValuePairs: ScopeValuePairs,
+): Set<Scope<unknown>> {
+  return new Set(
+    scopeValuePairs.map(([scope]) => scope as Scope<unknown>),
+  );
+}
+
+function getScopeInstances(
+  scopes: Scope<unknown>[],
+  scopeInstanceMap: ScopeInstanceMap,
+  excludeScopes: Set<Scope<unknown>> = new Set(),
+): ScopeInstance[] {
+  return scopes
+    .filter((scope) => !excludeScopes.has(scope))
+    .map((scope) => scopeInstanceMap.get(scope)!);
+}
+
+function dedupeScopeInstances(
+  scopeInstances: ScopeInstance[],
+): ScopeInstance[] {
+  const seen = new Set<string>();
+  const result: ScopeInstance[] = [];
+  for (const scopeInstance of scopeInstances) {
+    if (seen.has(scopeInstance.id)) continue;
+    seen.add(scopeInstance.id);
+    result.push(scopeInstance);
+  }
+  return result;
+}
+
+function dedupeBunjas(bunjas: AnyBunja[]): AnyBunja[] {
+  return Array.from(new Set(bunjas));
+}
+
+function addUniqueBunjaRef(
+  refs: AnyNormalizedBunjaRef[],
+  ref: AnyNormalizedBunjaRef,
+): void {
+  if (!refs.includes(ref)) refs.push(ref);
+}
+
 export class BunjaStore {
   private static counter: number = 0;
   readonly id: string = String(BunjaStore.counter++);
   #bunjas: Record<string, BunjaInstance> = {};
+  #bunjaBuckets: Map<string, Set<string>> = new Map();
   #scopes: Map<Scope<unknown>, Map<unknown, ScopeInstance>> = new Map();
-  #bakingContext: BunjaBakingContext | undefined;
   wrapInstance: WrapInstanceFn = defaultWrapInstanceFn;
   constructor() {
     if (__DEV__) devtoolsGlobalHook.emit("storeCreated", { storeId: this.id });
@@ -94,7 +293,7 @@ export class BunjaStore {
         bunjas: this.#bunjas,
         scopes: this.#scopes,
         get instantiating() {
-          return bunja.use != invalidUse;
+          return frameStack.length > 0;
         },
       };
     }
@@ -102,156 +301,484 @@ export class BunjaStore {
   }
   dispose(): void {
     for (const instance of Object.values(this.#bunjas)) instance.dispose();
-    for (const instanceMap of Object.values(this.#scopes)) {
+    for (const instanceMap of this.#scopes.values()) {
       for (const instance of instanceMap.values()) instance.dispose();
     }
     this.#bunjas = {};
+    this.#bunjaBuckets = new Map();
     this.#scopes = new Map();
     if (__DEV__) devtoolsGlobalHook.emit("storeDisposed", { storeId: this.id });
   }
-  get<T>(bunja: Bunja<T>, readScope: ReadScope): BunjaStoreGetResult<T> {
-    const originalUse = bunjaFn.use;
+  get<T, Seed>(
+    bunjaOrRef: Bunja<T, Seed> | BunjaGetRef<T, Seed>,
+    readScope: ReadScope,
+  ): BunjaStoreGetResult<T> {
+    const bunjaRef = normalizeBunjaRuntimeRef(bunjaOrRef);
+    const resolved = this.#resolveBunjaRef(
+      toBunjaGraphRef(bunjaRef),
+      readScope,
+      new Set(),
+      bunjaRef.seed,
+    );
+    const result: BunjaStoreGetResult<T> = {
+      value: resolved.value,
+      mount: resolved.mount,
+      deps: resolved.deps.map(({ value }) => value),
+    };
+    if (__DEV__) {
+      result.bunjaInstance = resolved.instance;
+      devtoolsGlobalHook.emit("getCalled", {
+        storeId: this.id,
+        bunjaInstanceId: resolved.instance.id,
+      });
+    }
+    return result;
+  }
+  prebake<T, Seed>(
+    bunjaOrRef: Bunja<T, Seed> | BunjaPrebakeRef<T, Seed>,
+    readScope: ReadScope,
+  ): BunjaStorePrebakeResult<T> {
+    const bunjaRef = normalizeBunjaPrebakeRef(bunjaOrRef);
+    const value = this.#prebakeBunjaRef(
+      bunjaRef,
+      readScope,
+      new Set(),
+    );
+    return {
+      value,
+      relatedBunjas: bunjaRef.bunja.relatedBunjas,
+      requiredScopes: bunjaRef.bunja.requiredScopes,
+    };
+  }
+  #resolveBunjaRef<T, Seed>(
+    bunjaRef: NormalizedBunjaRef<T, Seed>,
+    readScope: ReadScope,
+    inProgressBunjas: Set<AnyBunja>,
+    seed: Seed = bunjaRef.bunja.defaultSeed,
+  ): ResolvedBunja<T> {
+    const { bunja } = bunjaRef;
+    if (inProgressBunjas.has(bunja)) {
+      throw new Error("Circular bunja dependency detected.");
+    }
+    const resolvedReadScope = bunjaRef.scopeValuePairs.length > 0
+      ? createReadScopeFn(bunjaRef.scopeValuePairs, readScope)
+      : readScope;
+    inProgressBunjas.add(bunja);
     try {
-      const { bunjaInstance, bunjaInstanceMap, scopeInstanceMap } = bunja.baked
-        ? this.#getBaked(bunja, readScope)
-        : this.#getUnbaked(bunja, readScope);
-      const result: BunjaStoreGetResult<T> = {
-        value: bunjaInstance.value as T,
-        mount: () => {
-          bunjaInstanceMap.forEach((instance) => instance.add());
-          bunjaInstance.add();
-          scopeInstanceMap.forEach((instance) => instance.add());
-          const unmount = () => {
-            bunjaInstanceMap.forEach((instance) => instance.sub());
-            bunjaInstance.sub();
-            scopeInstanceMap.forEach((instance) => instance.sub());
-          };
-          return unmount;
-        },
-        deps: Array.from(scopeInstanceMap.values()).map(({ value }) => value),
-      };
-      if (__DEV__) {
-        result.bunjaInstance = bunjaInstance;
-        devtoolsGlobalHook.emit("getCalled", {
-          storeId: this.id,
-          bunjaInstanceId: bunjaInstance.id,
-        });
+      if (!bunja.baked) {
+        return this.#createResolvedBunja(
+          bunjaRef,
+          resolvedReadScope,
+          inProgressBunjas,
+          seed,
+        );
       }
-      return result;
+      const scopeInstanceMap = this.#resolveScopeInstanceMap(
+        bunja,
+        resolvedReadScope,
+      );
+      const boundScopes = getBoundScopeSet(bunjaRef.scopeValuePairs);
+      const scopeInstances = getScopeInstances(
+        bunja.requiredScopes,
+        scopeInstanceMap,
+      );
+      const directDeps = getScopeInstances(
+        bunja.requiredScopes,
+        scopeInstanceMap,
+        boundScopes,
+      );
+      const baseId = bunja.calcBaseInstanceId(scopeInstanceMap);
+      const bucket = this.#bunjaBuckets.get(baseId);
+      if (bucket) {
+        for (const candidateId of Array.from(bucket)) {
+          const candidate = this.#bunjas[candidateId];
+          if (!candidate) {
+            bucket.delete(candidateId);
+            continue;
+          }
+          const activeDeps = this.#resolveActiveDependencyRecipe(
+            candidate.recipe,
+            resolvedReadScope,
+            inProgressBunjas,
+          );
+          const currentId = bunja.calcInstanceId(
+            scopeInstanceMap,
+            activeDeps.activeDependencyIds,
+          );
+          const instance = currentId === candidate.id
+            ? candidate
+            : this.#bunjas[currentId];
+          if (!instance) continue;
+          return this.#toResolvedBunja(
+            instance,
+            scopeInstances,
+            directDeps,
+            activeDeps.deps,
+          );
+        }
+      }
+      return this.#createResolvedBunja(
+        bunjaRef,
+        resolvedReadScope,
+        inProgressBunjas,
+        seed,
+        scopeInstanceMap,
+      );
     } finally {
-      bunjaFn.use = originalUse;
+      inProgressBunjas.delete(bunja);
     }
   }
-  #getBaked<T>(bunja: Bunja<T>, readScope: ReadScope): BunjaStoreGetContext {
-    const scopeInstanceMap = new Map(
-      bunja.relatedScopes.map((scope) => [
+  #createResolvedBunja<T, Seed>(
+    bunjaRef: NormalizedBunjaRef<T, Seed>,
+    readScope: ReadScope,
+    inProgressBunjas: Set<AnyBunja>,
+    seed: Seed,
+    initialScopeInstanceMap: ScopeInstanceMap = new Map(),
+  ): ResolvedBunja<T> {
+    const { bunja } = bunjaRef;
+    return this.wrapInstance((dispose) => {
+      let instanceCreated = false;
+      let disposed = false;
+      const disposeOnce = () => {
+        if (disposed) return;
+        disposed = true;
+        dispose();
+      };
+      try {
+        const frame = this.#createInitFrame(
+          bunja,
+          readScope,
+          initialScopeInstanceMap,
+          inProgressBunjas,
+        );
+        const value = runWithFrame(frame, () => bunja.init(seed));
+        if (!bunja.baked) bunja.bake();
+        this.#ensureRequiredScopeInstances(
+          bunja,
+          frame.scopeInstanceMap,
+          readScope,
+        );
+        const boundScopes = getBoundScopeSet(bunjaRef.scopeValuePairs);
+        const scopeInstances = getScopeInstances(
+          bunja.requiredScopes,
+          frame.scopeInstanceMap,
+        );
+        const directDeps = getScopeInstances(
+          bunja.requiredScopes,
+          frame.scopeInstanceMap,
+          boundScopes,
+        );
+        const baseId = bunja.calcBaseInstanceId(frame.scopeInstanceMap);
+        const id = bunja.calcInstanceId(
+          frame.scopeInstanceMap,
+          frame.activeDependencyIds,
+        );
+        const existing = this.#bunjas[id];
+        if (existing) {
+          disposeOnce();
+          return this.#toResolvedBunja(
+            existing,
+            scopeInstances,
+            directDeps,
+            frame.activeDependencyDeps,
+          );
+        }
+        const instance = this.#createBunjaInstance(
+          id,
+          baseId,
+          value,
+          Array.from(frame.activeDependencyMounts.values()),
+          frame.effects,
+          { activeDependencies: frame.activeDependencyRecipes },
+          dispose,
+        );
+        instanceCreated = true;
+        return this.#toResolvedBunja(
+          instance,
+          scopeInstances,
+          directDeps,
+          frame.activeDependencyDeps,
+        );
+      } finally {
+        if (!instanceCreated) disposeOnce();
+      }
+    });
+  }
+  #toResolvedBunja<T>(
+    instance: BunjaInstance,
+    scopeInstances: ScopeInstance[],
+    directDeps: ScopeInstance[],
+    activeDependencyDeps: ScopeInstance[],
+  ): ResolvedBunja<T> {
+    const deps = dedupeScopeInstances([
+      ...directDeps,
+      ...activeDependencyDeps,
+    ]);
+    return {
+      value: instance.value as T,
+      instance,
+      deps,
+      mount: () => {
+        for (const scopeInstance of scopeInstances) scopeInstance.add();
+        instance.add();
+        return () => {
+          instance.sub();
+          for (const scopeInstance of scopeInstances) scopeInstance.sub();
+        };
+      },
+    };
+  }
+  #createInitFrame(
+    currentBunja: AnyBunja,
+    readScope: ReadScope,
+    scopeInstanceMap: ScopeInstanceMap,
+    inProgressBunjas: Set<AnyBunja>,
+  ): BunjaInitFrame {
+    const frame = {
+      currentBunja,
+      readScope,
+      scopeInstanceMap,
+      inProgressBunjas,
+      effects: [] as BunjaEffectCallback[],
+      activeDependencyIds: new Set<string>(),
+      activeDependencyRecipes: [] as ActiveDependencyRecipe[],
+      activeDependencyMounts: new Map<string, () => () => void>(),
+      activeDependencyDeps: [] as ScopeInstance[],
+      use: ((dep: unknown, scopeValuePairs?: ScopeValuePairs) => {
+        if (dep instanceof Scope) {
+          return this.#useScopeInFrame(frame, dep as Scope<unknown>);
+        }
+        if (dep instanceof Bunja || isBunjaRef(dep)) {
+          return this.#useBunjaDependencyInFrame(
+            frame,
+            normalizeBunjaRuntimeRef(dep, scopeValuePairs),
+            "required",
+          );
+        }
+        throw new Error("`bunja.use` can only be used with Bunja or Scope.");
+      }) as BunjaUseFn,
+      will: ((dep: unknown, scopeValuePairs?: ScopeValuePairs) => {
+        if (!(dep instanceof Bunja || isBunjaRef(dep))) {
+          throw new Error("`bunja.will` can only be used with Bunja.");
+        }
+        const bunjaRef = normalizeBunjaRuntimeRef(dep, scopeValuePairs);
+        currentBunja.addOptionalBunjaRef(toBunjaGraphRef(bunjaRef));
+        return () => {
+          if (frameStack[frameStack.length - 1] !== frame) {
+            throw new Error(
+              "A thunk returned by `bunja.will` can only be called inside the same bunja init function.",
+            );
+          }
+          return this.#useBunjaDependencyInFrame(
+            frame,
+            bunjaRef,
+            "optional",
+          );
+        };
+      }) as BunjaWillFn,
+      effect: ((callback: BunjaEffectCallback) => {
+        frame.effects.push(callback);
+      }) as BunjaEffectFn,
+    } satisfies BunjaInitFrame;
+    return frame;
+  }
+  #useScopeInFrame<T>(frame: BunjaInitFrame, scope: Scope<T>): T {
+    if (!frame.currentBunja.baked) {
+      frame.currentBunja.addScope(scope as Scope<unknown>);
+    }
+    let scopeInstance = frame.scopeInstanceMap.get(scope as Scope<unknown>);
+    if (!scopeInstance) {
+      if (frame.currentBunja.baked) {
+        throw new Error(
+          "`bunja.use(scope)` cannot introduce a new scope after the bunja is baked.",
+        );
+      }
+      scopeInstance = this.#getScopeInstance(
+        scope as Scope<unknown>,
+        frame.readScope(scope),
+      );
+      frame.scopeInstanceMap.set(scope as Scope<unknown>, scopeInstance);
+    }
+    return scopeInstance.value as T;
+  }
+  #useBunjaDependencyInFrame<T, Seed>(
+    frame: BunjaInitFrame,
+    bunjaRef: NormalizedBunjaRuntimeRef<T, Seed>,
+    edge: BunjaDependencyEdge,
+  ): T {
+    const graphRef = toBunjaGraphRef(bunjaRef);
+    if (edge === "optional" || graphRef.scopeValuePairs.length > 0) {
+      frame.currentBunja.addOptionalBunjaRef(graphRef);
+    } else if (edge === "required") {
+      frame.currentBunja.addRequiredBunjaRef(graphRef);
+    }
+    const resolved = this.#resolveBunjaRef(
+      graphRef,
+      frame.readScope,
+      frame.inProgressBunjas,
+      bunjaRef.seed,
+    );
+    frame.activeDependencyIds.add(resolved.instance.id);
+    frame.activeDependencyRecipes.push({
+      ref: graphRef,
+      seed: bunjaRef.seed,
+    });
+    if (!frame.activeDependencyMounts.has(resolved.instance.id)) {
+      frame.activeDependencyMounts.set(resolved.instance.id, resolved.mount);
+    }
+    frame.activeDependencyDeps.push(...resolved.deps);
+    return resolved.value;
+  }
+  #resolveActiveDependencyRecipe(
+    recipe: BunjaInstanceRecipe,
+    readScope: ReadScope,
+    inProgressBunjas: Set<AnyBunja>,
+  ): ResolvedActiveDependencyRecipe {
+    const activeDependencyIds = new Set<string>();
+    const deps: ScopeInstance[] = [];
+    for (const { ref, seed } of recipe.activeDependencies) {
+      const resolved = this.#resolveBunjaRef(
+        ref,
+        readScope,
+        inProgressBunjas,
+        seed,
+      );
+      activeDependencyIds.add(resolved.instance.id);
+      deps.push(...resolved.deps);
+    }
+    return {
+      activeDependencyIds,
+      deps: dedupeScopeInstances(deps),
+    };
+  }
+  #prebakeBunjaRef<T, Seed>(
+    bunjaRef: NormalizedBunjaRef<T, Seed>,
+    readScope: ReadScope,
+    inProgressBunjas: Set<AnyBunja>,
+  ): T {
+    const { bunja } = bunjaRef;
+    if (inProgressBunjas.has(bunja)) {
+      throw new Error("Circular bunja dependency detected.");
+    }
+    const resolvedReadScope = bunjaRef.scopeValuePairs.length > 0
+      ? createReadScopeFn(bunjaRef.scopeValuePairs, readScope)
+      : readScope;
+    inProgressBunjas.add(bunja);
+    try {
+      return this.wrapInstance((dispose) => {
+        try {
+          const frame = this.#createPrebakeFrame(
+            bunja,
+            resolvedReadScope,
+            inProgressBunjas,
+          );
+          const value = runWithFrame(
+            frame,
+            () => bunja.init(bunja.defaultSeed),
+          );
+          if (!bunja.baked) bunja.bake();
+          for (
+            const ref of [
+              ...bunja.requiredBunjaRefs,
+              ...bunja.optionalBunjaRefs,
+            ]
+          ) this.#prebakeBunjaRef(ref, resolvedReadScope, inProgressBunjas);
+          return value;
+        } finally {
+          dispose();
+        }
+      });
+    } finally {
+      inProgressBunjas.delete(bunja);
+    }
+  }
+  #createPrebakeFrame(
+    currentBunja: AnyBunja,
+    readScope: ReadScope,
+    inProgressBunjas: Set<AnyBunja>,
+  ): BunjaPrebakeFrame {
+    const frame = {
+      currentBunja,
+      readScope,
+      inProgressBunjas,
+      use: ((dep: unknown, scopeValuePairs?: ScopeValuePairs) => {
+        if (dep instanceof Scope) {
+          if (!currentBunja.baked) {
+            currentBunja.addScope(dep as Scope<unknown>);
+          }
+          return readScope(dep as Scope<unknown>);
+        }
+        if (dep instanceof Bunja || isBunjaRef(dep)) {
+          const bunjaRef = normalizeBunjaRuntimeRef(dep, scopeValuePairs);
+          return this.#prebakeBunjaDependencyInFrame(
+            frame,
+            toBunjaGraphRef(bunjaRef),
+            "required",
+          );
+        }
+        throw new Error("`bunja.use` can only be used with Bunja or Scope.");
+      }) as BunjaUseFn,
+      will: ((dep: unknown, scopeValuePairs?: ScopeValuePairs) => {
+        if (!(dep instanceof Bunja || isBunjaRef(dep))) {
+          throw new Error("`bunja.will` can only be used with Bunja.");
+        }
+        const bunjaRef = toBunjaGraphRef(
+          normalizeBunjaRuntimeRef(dep, scopeValuePairs),
+        );
+        currentBunja.addOptionalBunjaRef(bunjaRef);
+        const value = this.#prebakeBunjaRef(
+          bunjaRef,
+          readScope,
+          inProgressBunjas,
+        );
+        return () => {
+          if (frameStack[frameStack.length - 1] !== frame) {
+            throw new Error(
+              "A thunk returned by `bunja.will` can only be called inside the same bunja init function.",
+            );
+          }
+          return value;
+        };
+      }) as BunjaWillFn,
+      effect: noop,
+    } satisfies BunjaPrebakeFrame;
+    return frame;
+  }
+  #prebakeBunjaDependencyInFrame<T, Seed>(
+    frame: BunjaPrebakeFrame,
+    bunjaRef: NormalizedBunjaRef<T, Seed>,
+    edge: BunjaDependencyEdge,
+  ): T {
+    if (edge === "optional" || bunjaRef.scopeValuePairs.length > 0) {
+      frame.currentBunja.addOptionalBunjaRef(bunjaRef);
+    } else if (edge === "required") {
+      frame.currentBunja.addRequiredBunjaRef(bunjaRef);
+    }
+    return this.#prebakeBunjaRef(
+      bunjaRef,
+      frame.readScope,
+      frame.inProgressBunjas,
+    );
+  }
+  #resolveScopeInstanceMap(
+    bunja: AnyBunja,
+    readScope: ReadScope,
+  ): ScopeInstanceMap {
+    const scopeInstanceMap: ScopeInstanceMap = new Map();
+    this.#ensureRequiredScopeInstances(bunja, scopeInstanceMap, readScope);
+    return scopeInstanceMap;
+  }
+  #ensureRequiredScopeInstances(
+    bunja: AnyBunja,
+    scopeInstanceMap: ScopeInstanceMap,
+    readScope: ReadScope,
+  ): void {
+    for (const scope of bunja.requiredScopes) {
+      if (scopeInstanceMap.has(scope)) continue;
+      scopeInstanceMap.set(
         scope,
         this.#getScopeInstance(scope, readScope(scope)),
-      ]),
-    );
-    const bunjaInstanceMap = new Map();
-    bunjaFn.use = <T>(dep: Dep<T>) => {
-      if (dep instanceof Bunja) {
-        return bunjaInstanceMap.get(dep as Bunja<unknown>)!.value as T;
-      }
-      if (dep instanceof Scope) {
-        return scopeInstanceMap.get(dep as Scope<unknown>)!.value as T;
-      }
-      throw new Error("`bunja.use` can only be used with Bunja or Scope.");
-    };
-    for (const relatedBunja of bunja.relatedBunjas) {
-      bunjaInstanceMap.set(
-        relatedBunja,
-        this.#getBunjaInstance(relatedBunja, scopeInstanceMap),
       );
-    }
-    const bunjaInstance = this.#getBunjaInstance(bunja, scopeInstanceMap);
-    return { bunjaInstance, bunjaInstanceMap, scopeInstanceMap };
-  }
-  #getUnbaked<T>(bunja: Bunja<T>, readScope: ReadScope): BunjaStoreGetContext {
-    const bunjaInstanceMap: BunjaInstanceMap = new Map();
-    const scopeInstanceMap: ScopeInstanceMap = new Map();
-    function getUse<D extends Dep<unknown>, I extends { value: unknown }>(
-      map: Map<D, I>,
-      addDep: (D: D) => void,
-      getInstance: (dep: D) => I,
-    ) {
-      return ((dep) => {
-        const d = dep as D;
-        addDep(d);
-        if (map.has(d)) return map.get(d)!.value as T;
-        const instance = getInstance(d);
-        map.set(d, instance);
-        return instance.value as T;
-      }) as <T>(dep: Dep<T>) => T;
-    }
-    const useScope = getUse(
-      scopeInstanceMap,
-      (dep) => this.#bakingContext!.currentBunja.addScope(dep),
-      (dep) => this.#getScopeInstance(dep, readScope(dep)),
-    );
-    const useBunja = getUse(
-      bunjaInstanceMap,
-      (dep) => this.#bakingContext!.currentBunja.addParent(dep),
-      (dep) => {
-        if (dep.baked) {
-          for (const scope of dep.relatedScopes) useScope(scope);
-        }
-        return this.#getBunjaInstance(dep, scopeInstanceMap);
-      },
-    );
-    bunjaFn.use = <T>(dep: Dep<T>) => {
-      if (dep instanceof Bunja) return useBunja(dep) as T;
-      if (dep instanceof Scope) return useScope(dep) as T;
-      throw new Error("`bunja.use` can only be used with Bunja or Scope.");
-    };
-    const originalBakingContext = this.#bakingContext;
-    try {
-      this.#bakingContext = { currentBunja: bunja };
-      const bunjaInstance = this.#getBunjaInstance(bunja, scopeInstanceMap);
-      return { bunjaInstance, bunjaInstanceMap, scopeInstanceMap };
-    } finally {
-      this.#bakingContext = originalBakingContext;
-    }
-  }
-  #getBunjaInstance<T>(
-    bunja: Bunja<T>,
-    scopeInstanceMap: ScopeInstanceMap,
-  ): BunjaInstance {
-    const originalEffect = bunjaFn.effect;
-    const originalFork = bunjaFn.fork;
-    const prevBunja = this.#bakingContext?.currentBunja;
-    try {
-      const effects: BunjaEffectCallback[] = [];
-      bunjaFn.effect = (callback: BunjaEffectCallback) => {
-        effects.push(callback);
-      };
-      bunjaFn.fork = (b, scopeValuePairs) => {
-        const readScope = createReadScopeFn(scopeValuePairs, bunjaFn.use);
-        const { value, mount } = this.get(b, readScope);
-        bunjaFn.effect(mount);
-        return value;
-      };
-      if (this.#bakingContext) this.#bakingContext.currentBunja = bunja;
-      if (bunja.baked) {
-        const id = bunja.calcInstanceId(scopeInstanceMap);
-        if (id in this.#bunjas) return this.#bunjas[id];
-        return this.wrapInstance((dispose) => {
-          const value = bunja.init();
-          return this.#createBunjaInstance(id, value, effects, dispose);
-        });
-      } else {
-        return this.wrapInstance((dispose) => {
-          const value = bunja.init();
-          bunja.bake();
-          const id = bunja.calcInstanceId(scopeInstanceMap);
-          return this.#createBunjaInstance(id, value, effects, dispose);
-        });
-      }
-    } finally {
-      bunjaFn.effect = originalEffect;
-      bunjaFn.fork = originalFork;
-      if (this.#bakingContext) this.#bakingContext.currentBunja = prevBunja!;
     }
   }
   #getScopeInstance(scope: Scope<unknown>, value: unknown): ScopeInstance {
@@ -275,27 +802,38 @@ export class BunjaStore {
   }
   #createBunjaInstance(
     id: string,
+    baseId: string,
     value: unknown,
+    dependencyMounts: (() => () => void)[],
     effects: BunjaEffectCallback[],
+    recipe: BunjaInstanceRecipe,
     dispose: () => void,
   ): BunjaInstance {
-    const effect = () => {
-      const cleanups = effects
-        .map((effect) => effect())
-        .filter(Boolean) as (() => void)[];
-      return () => cleanups.forEach((cleanup) => cleanup());
-    };
-    const bunjaInstance = new BunjaInstance(id, value, effect, () => {
-      if (__DEV__) {
-        devtoolsGlobalHook.emit("bunjaInstanceUnmounted", {
-          storeId: this.id,
-          bunjaInstanceId: id,
-        });
-      }
-      dispose();
-      delete this.#bunjas[id];
-    });
+    const bunjaInstance = new BunjaInstance(
+      id,
+      baseId,
+      value,
+      dependencyMounts,
+      effects,
+      recipe,
+      () => {
+        if (__DEV__) {
+          devtoolsGlobalHook.emit("bunjaInstanceUnmounted", {
+            storeId: this.id,
+            bunjaInstanceId: id,
+          });
+        }
+        dispose();
+        delete this.#bunjas[id];
+        const bucket = this.#bunjaBuckets.get(baseId);
+        bucket?.delete(id);
+        if (bucket?.size === 0) this.#bunjaBuckets.delete(baseId);
+      },
+    );
     this.#bunjas[id] = bunjaInstance;
+    const bucket = this.#bunjaBuckets.get(baseId) ??
+      this.#bunjaBuckets.set(baseId, new Set()).get(baseId)!;
+    bucket.add(id);
     if (__DEV__) {
       devtoolsGlobalHook.emit("bunjaInstanceMounted", {
         storeId: this.id,
@@ -342,6 +880,12 @@ export interface BunjaStoreGetResult<T> {
   bunjaInstance?: BunjaInstance;
 }
 
+export interface BunjaStorePrebakeResult<T> {
+  value: T;
+  relatedBunjas: Bunja<any, any>[];
+  requiredScopes: Scope<unknown>[];
+}
+
 export function delayUnmount(
   mount: () => () => void,
   ms: number = 0,
@@ -352,12 +896,20 @@ export function delayUnmount(
   };
 }
 
-export class Bunja<T> {
+export class Bunja<T, Seed = NoSeed> {
   private static counter: number = 0;
   readonly id: string = String(Bunja.counter++);
   debugLabel: string = "";
-  #phase: BunjaPhase = { baked: false, parents: new Set(), scopes: new Set() };
-  constructor(public init: () => T) {
+  #phase: BunjaPhase = {
+    baked: false,
+    requiredBunjaRefs: [],
+    optionalBunjaRefs: [],
+    scopes: new Set(),
+  };
+  constructor(
+    public init: (seed: Seed) => T,
+    public defaultSeed: Seed,
+  ) {
     if (__DEV__) {
       devtoolsGlobalHook.bunjas[this.id] = this;
       devtoolsGlobalHook.emit("bunjaCreated", { bunjaId: this.id });
@@ -366,21 +918,44 @@ export class Bunja<T> {
   get baked(): boolean {
     return this.#phase.baked;
   }
-  get parents(): Bunja<unknown>[] {
-    if (this.#phase.baked) return this.#phase.parents;
-    return Array.from(this.#phase.parents);
+  get requiredBunjas(): AnyBunja[] {
+    return dedupeBunjas(
+      this.#phase.requiredBunjaRefs.map(({ bunja }) => bunja),
+    );
   }
-  get relatedBunjas(): Bunja<unknown>[] {
+  get optionalBunjas(): AnyBunja[] {
+    return dedupeBunjas(
+      this.#phase.optionalBunjaRefs.map(({ bunja }) => bunja),
+    );
+  }
+  get requiredBunjaRefs(): AnyNormalizedBunjaRef[] {
+    return this.#phase.requiredBunjaRefs;
+  }
+  get optionalBunjaRefs(): AnyNormalizedBunjaRef[] {
+    return this.#phase.optionalBunjaRefs;
+  }
+  get expandedRequiredBunjas(): AnyBunja[] {
     if (!this.#phase.baked) throw new Error("Bunja is not baked yet.");
-    return this.#phase.relatedBunjas;
+    return this.#phase.expandedRequiredBunjas;
   }
-  get relatedScopes(): Scope<unknown>[] {
+  get relatedBunjas(): AnyBunja[] {
     if (!this.#phase.baked) throw new Error("Bunja is not baked yet.");
-    return this.#phase.relatedScopes;
+    return toposortRelatedBunjas([
+      ...this.requiredBunjas,
+      ...this.optionalBunjas,
+    ]);
   }
-  addParent(bunja: Bunja<unknown>): void {
+  get requiredScopes(): Scope<unknown>[] {
+    if (!this.#phase.baked) throw new Error("Bunja is not baked yet.");
+    return this.#phase.requiredScopes;
+  }
+  addRequiredBunjaRef(ref: AnyNormalizedBunjaRef): void {
     if (this.#phase.baked) return;
-    this.#phase.parents.add(bunja);
+    addUniqueBunjaRef(this.#phase.requiredBunjaRefs, ref);
+  }
+  addOptionalBunjaRef(ref: AnyNormalizedBunjaRef): void {
+    if (this.#phase.baked) return;
+    addUniqueBunjaRef(this.#phase.optionalBunjaRefs, ref);
   }
   addScope(scope: Scope<unknown>): void {
     if (this.#phase.baked) return;
@@ -389,21 +964,39 @@ export class Bunja<T> {
   bake(): void {
     if (this.#phase.baked) throw new Error("Bunja is already baked.");
     const scopes = this.#phase.scopes;
-    const parents = this.parents;
-    const relatedBunjas = toposort(parents);
-    const relatedScopes = Array.from(
-      new Set([
-        ...relatedBunjas.flatMap((bunja) => bunja.relatedScopes),
-        ...scopes,
-      ]),
-    );
-    this.#phase = { baked: true, parents, relatedBunjas, relatedScopes };
+    const requiredBunjaRefs = this.#phase.requiredBunjaRefs;
+    const optionalBunjaRefs = this.#phase.optionalBunjaRefs;
+    const requiredBunjas = this.requiredBunjas;
+    const expandedRequiredBunjas = toposortRequiredBunjas(requiredBunjas);
+    const requiredScopeSet = new Set<Scope<unknown>>();
+    for (const bunja of expandedRequiredBunjas) {
+      for (const scope of bunja.requiredScopes) requiredScopeSet.add(scope);
+    }
+    for (const scope of scopes) requiredScopeSet.add(scope);
+    const requiredScopes = Array.from(requiredScopeSet);
+    this.#phase = {
+      baked: true,
+      requiredBunjaRefs,
+      optionalBunjaRefs,
+      expandedRequiredBunjas,
+      requiredScopes,
+    };
   }
-  calcInstanceId(scopeInstanceMap: Map<Scope<unknown>, ScopeInstance>): string {
-    const scopeInstanceIds = this.relatedScopes.map(
+  calcBaseInstanceId(
+    scopeInstanceMap: Map<Scope<unknown>, ScopeInstance>,
+  ): string {
+    const scopeInstanceIds = this.requiredScopes.map(
       (scope) => scopeInstanceMap.get(scope)!.id,
     );
     return `${this.id}:${scopeInstanceIds.join(",")}`;
+  }
+  calcInstanceId(
+    scopeInstanceMap: Map<Scope<unknown>, ScopeInstance>,
+    activeDependencyIds: Iterable<string> = [],
+  ): string {
+    return `${this.calcBaseInstanceId(scopeInstanceMap)}:${
+      Array.from(activeDependencyIds).join(",")
+    }`;
   }
   toString(): string {
     const { id, debugLabel } = this;
@@ -415,15 +1008,17 @@ type BunjaPhase = BunjaPhaseUnbaked | BunjaPhaseBaked;
 
 interface BunjaPhaseUnbaked {
   readonly baked: false;
-  readonly parents: Set<Bunja<unknown>>;
+  readonly requiredBunjaRefs: AnyNormalizedBunjaRef[];
+  readonly optionalBunjaRefs: AnyNormalizedBunjaRef[];
   readonly scopes: Set<Scope<unknown>>;
 }
 
 interface BunjaPhaseBaked {
   readonly baked: true;
-  readonly parents: Bunja<unknown>[];
-  readonly relatedBunjas: Bunja<unknown>[];
-  readonly relatedScopes: Scope<unknown>[];
+  readonly requiredBunjaRefs: AnyNormalizedBunjaRef[];
+  readonly optionalBunjaRefs: AnyNormalizedBunjaRef[];
+  readonly expandedRequiredBunjas: AnyBunja[];
+  readonly requiredScopes: Scope<unknown>[];
 }
 
 export class Scope<T> {
@@ -468,21 +1063,38 @@ abstract class RefCounter {
 
 class BunjaInstance extends RefCounter {
   #cleanup: (() => void) | undefined;
+  #disposed = false;
   constructor(
     public readonly id: string,
+    public readonly baseId: string,
     public readonly value: unknown,
-    public readonly effect: BunjaEffectCallback,
+    private readonly dependencyMounts: (() => () => void)[],
+    private readonly effects: BunjaEffectCallback[],
+    public readonly recipe: BunjaInstanceRecipe,
     private readonly _dispose: () => void,
   ) {
     super();
   }
   override dispose(): void {
+    if (this.#disposed) return;
+    this.#disposed = true;
     this.#cleanup?.();
+    this.#cleanup = undefined;
     this._dispose();
   }
   override add(): void {
-    this.#cleanup ??= this.effect() ?? noop;
+    this.#cleanup ??= this.#mount();
     super.add();
+  }
+  #mount(): () => void {
+    const dependencyCleanups = this.dependencyMounts.map((mount) => mount());
+    const effectCleanups = this.effects
+      .map((effect) => effect())
+      .filter(Boolean) as (() => void)[];
+    return () => {
+      for (const cleanup of dependencyCleanups) cleanup();
+      for (const cleanup of effectCleanups) cleanup();
+    };
   }
 }
 
@@ -497,26 +1109,32 @@ class ScopeInstance extends RefCounter {
   }
 }
 
-interface Toposortable {
-  parents: Toposortable[];
-}
-function toposort<T extends Toposortable>(nodes: T[]): T[] {
+function toposort<T>(nodes: T[], getDependencies: (node: T) => T[]): T[] {
   const visited = new Set<T>();
   const result: T[] = [];
   function visit(current: T) {
     if (visited.has(current)) return;
     visited.add(current);
-    for (const parent of current.parents) visit(parent as T);
+    for (const dependency of getDependencies(current)) visit(dependency);
     result.push(current);
   }
   for (const node of nodes) visit(node);
   return result;
 }
+function toposortRequiredBunjas(bunjas: AnyBunja[]): AnyBunja[] {
+  return toposort(bunjas, (bunja) => bunja.requiredBunjas);
+}
+function toposortRelatedBunjas(bunjas: AnyBunja[]): AnyBunja[] {
+  return toposort(bunjas, (bunja) => [
+    ...bunja.requiredBunjas,
+    ...bunja.optionalBunjas,
+  ]);
+}
 
 const noop = () => {};
 
 export interface BunjaDevtoolsGlobalHook {
-  bunjas: Record<string, Bunja<any>>;
+  bunjas: Record<string, Bunja<any, any>>;
   scopes: Record<string, Scope<any>>;
   listeners: Record<
     BunjaDevtoolsEventType,
