@@ -251,11 +251,8 @@ function getBoundScopeSet(
 function getScopeInstances(
   scopes: Scope<unknown>[],
   scopeInstanceMap: ScopeInstanceMap,
-  excludeScopes: Set<Scope<unknown>> = new Set(),
 ): ScopeInstance[] {
-  return scopes
-    .filter((scope) => !excludeScopes.has(scope))
-    .map((scope) => scopeInstanceMap.get(scope)!);
+  return scopes.map((scope) => scopeInstanceMap.get(scope)!);
 }
 
 function dedupeScopeInstances(
@@ -331,6 +328,7 @@ export class BunjaStore {
       readScope,
       new Set(),
       bunjaRef.seed,
+      true,
     );
     const result: BunjaStoreGetResult<T> = {
       value: resolved.value,
@@ -366,6 +364,7 @@ export class BunjaStore {
     readScope: ReadScope,
     inProgressBunjas: Set<AnyBunja>,
     seed: Seed = bunjaRef.bunja.defaultSeed,
+    includeBoundScopeDeps: boolean = false,
   ): ResolvedBunja<T> {
     const { bunja } = bunjaRef;
     if (inProgressBunjas.has(bunja)) {
@@ -382,6 +381,7 @@ export class BunjaStore {
           resolvedReadScope,
           inProgressBunjas,
           seed,
+          includeBoundScopeDeps,
         );
       }
       const scopeInstanceMap = this.#resolveScopeInstanceMap(
@@ -394,9 +394,10 @@ export class BunjaStore {
         scopeInstanceMap,
       );
       const directDeps = getScopeInstances(
-        bunja.requiredScopes,
+        includeBoundScopeDeps
+          ? bunja.requiredScopes
+          : bunja.requiredScopes.filter((scope) => !boundScopes.has(scope)),
         scopeInstanceMap,
-        boundScopes,
       );
       const baseId = bunja.calcBaseInstanceId(scopeInstanceMap);
       const bucket = this.#bunjaBuckets.get(baseId);
@@ -433,6 +434,7 @@ export class BunjaStore {
         resolvedReadScope,
         inProgressBunjas,
         seed,
+        includeBoundScopeDeps,
         scopeInstanceMap,
       );
     } finally {
@@ -444,6 +446,7 @@ export class BunjaStore {
     readScope: ReadScope,
     inProgressBunjas: Set<AnyBunja>,
     seed: Seed,
+    includeBoundScopeDeps: boolean,
     initialScopeInstanceMap: ScopeInstanceMap = new Map(),
   ): ResolvedBunja<T> {
     const { bunja } = bunjaRef;
@@ -475,9 +478,10 @@ export class BunjaStore {
           frame.scopeInstanceMap,
         );
         const directDeps = getScopeInstances(
-          bunja.requiredScopes,
+          includeBoundScopeDeps
+            ? bunja.requiredScopes
+            : bunja.requiredScopes.filter((scope) => !boundScopes.has(scope)),
           frame.scopeInstanceMap,
-          boundScopes,
         );
         const baseId = bunja.calcBaseInstanceId(frame.scopeInstanceMap);
         const id = bunja.calcInstanceId(

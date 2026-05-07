@@ -208,6 +208,32 @@ Deno.test({
 });
 
 Deno.test({
+  name: "root scope value pairs are included in store.get deps",
+  fn() {
+    const store = createBunjaStore();
+    const myScope = createScope<string>();
+    const myBunja = bunja(() => {
+      const scopeValue = bunja.use(myScope);
+      return { scopeValue };
+    });
+
+    const first = store.get(
+      { bunja: myBunja, with: [myScope.bind("foo")] },
+      readNull,
+    );
+    const second = store.get(
+      { bunja: myBunja, with: [myScope.bind("bar")] },
+      readNull,
+    );
+
+    assertEquals(first.value.scopeValue, "foo");
+    assertEquals(second.value.scopeValue, "bar");
+    assertEquals(first.deps, ["foo"]);
+    assertEquals(second.deps, ["bar"]);
+  },
+});
+
+Deno.test({
   name: "bunja.use can override scope value pairs inside a bunja init",
   fn() {
     const store = createBunjaStore();
