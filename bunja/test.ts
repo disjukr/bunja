@@ -299,6 +299,56 @@ Deno.test({
 });
 
 Deno.test({
+  name: "bunja.use with scope value pairs propagates unbound required scopes",
+  fn() {
+    const createGraph = () => {
+      const injectedScope = createScope<string>();
+      const outerScope = createScope<string>();
+      const dependencyBunja = bunja(() => {
+        const injected = bunja.use(injectedScope);
+        const outer = bunja.use(outerScope);
+        return { injected, outer };
+      });
+      const consumerBunja = bunja(() =>
+        bunja.use(dependencyBunja, [injectedScope.bind("injected")])
+      );
+      return { consumerBunja, injectedScope, outerScope };
+    };
+    const readScope = <T>() => "outer" as T;
+
+    const prebakeGraph = createGraph();
+    const { requiredScopes } = createBunjaStore().prebake(
+      prebakeGraph.consumerBunja,
+      readScope,
+    );
+    assertEquals(requiredScopes.length, 1);
+    assertEquals(requiredScopes[0] === prebakeGraph.outerScope, true);
+    assertEquals(
+      requiredScopes.some((scope) => scope === prebakeGraph.injectedScope),
+      false,
+    );
+
+    const getGraph = createGraph();
+    const { value, deps } = createBunjaStore().get(
+      getGraph.consumerBunja,
+      readScope,
+    );
+    const requiredScopes2 = getGraph.consumerBunja.requiredScopes;
+    assertEquals(value, { injected: "injected", outer: "outer" });
+    assertEquals(deps, ["outer"]);
+    assertEquals(requiredScopes2.length, 1);
+    assertEquals(
+      requiredScopes2[0] === getGraph.outerScope,
+      true,
+    );
+    assertEquals(
+      requiredScopes2.some((scope) => scope === getGraph.injectedScope),
+      false,
+    );
+  },
+});
+
+Deno.test({
   name: "seed is used only when creating a bunja instance",
   fn() {
     const store = createBunjaStore();
@@ -427,6 +477,29 @@ Deno.test({
     cleanup();
     assertSpyCalls(aUnmountSpy, 1);
     assertSpyCalls(bUnmountSpy, 0);
+  },
+});
+
+Deno.test({
+  name: "bunja.will records optional refs once when thunk is used",
+  fn() {
+    const createConsumer = () => {
+      const dependencyBunja = bunja(() => "dependency");
+      const consumerBunja = bunja(() => {
+        const getDependency = bunja.will(dependencyBunja);
+        return getDependency();
+      });
+      return { consumerBunja };
+    };
+
+    const getGraph = createConsumer();
+    createBunjaStore().get(getGraph.consumerBunja, readNull);
+
+    const prebakeGraph = createConsumer();
+    createBunjaStore().prebake(prebakeGraph.consumerBunja, readNull);
+
+    assertEquals(getGraph.consumerBunja.optionalBunjaRefs.length, 1);
+    assertEquals(prebakeGraph.consumerBunja.optionalBunjaRefs.length, 1);
   },
 });
 

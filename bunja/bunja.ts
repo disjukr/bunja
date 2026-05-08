@@ -94,7 +94,6 @@ export type Dep<T> = Bunja<T, any> | Scope<T>;
 
 type AnyBunja = Bunja<any, any>;
 type ScopeInstanceMap = Map<Scope<unknown>, ScopeInstance>;
-type BunjaDependencyEdge = "required" | "optional";
 
 interface BunjaFrame {
   use: BunjaUseFn;
@@ -564,11 +563,10 @@ export class BunjaStore {
           return this.#useScopeInFrame(frame, dep as Scope<unknown>);
         }
         if (dep instanceof Bunja || isBunjaRef(dep)) {
-          return this.#useBunjaDependencyInFrame(
-            frame,
-            normalizeBunjaRuntimeRef(dep, scopeValuePairs),
-            "required",
-          );
+          const bunjaRef = normalizeBunjaRuntimeRef(dep, scopeValuePairs);
+          const graphRef = toBunjaGraphRef(bunjaRef);
+          currentBunja.addRequiredBunjaRef(graphRef);
+          return this.#useBunjaDependencyInFrame(frame, bunjaRef);
         }
         throw new Error("`bunja.use` can only be used with Bunja or Scope.");
       }) as BunjaUseFn,
@@ -577,18 +575,15 @@ export class BunjaStore {
           throw new Error("`bunja.will` can only be used with Bunja.");
         }
         const bunjaRef = normalizeBunjaRuntimeRef(dep, scopeValuePairs);
-        currentBunja.addOptionalBunjaRef(toBunjaGraphRef(bunjaRef));
+        const graphRef = toBunjaGraphRef(bunjaRef);
+        currentBunja.addOptionalBunjaRef(graphRef);
         return () => {
           if (frameStack[frameStack.length - 1] !== frame) {
             throw new Error(
               "A thunk returned by `bunja.will` can only be called inside the same bunja init function.",
             );
           }
-          return this.#useBunjaDependencyInFrame(
-            frame,
-            bunjaRef,
-            "optional",
-          );
+          return this.#useBunjaDependencyInFrame(frame, bunjaRef);
         };
       }) as BunjaWillFn,
       effect: ((callback: BunjaEffectCallback) => {
@@ -619,14 +614,8 @@ export class BunjaStore {
   #useBunjaDependencyInFrame<T, Seed>(
     frame: BunjaInitFrame,
     bunjaRef: NormalizedBunjaRuntimeRef<T, Seed>,
-    edge: BunjaDependencyEdge,
   ): T {
     const graphRef = toBunjaGraphRef(bunjaRef);
-    if (edge === "optional" || graphRef.scopeValuePairs.length > 0) {
-      frame.currentBunja.addOptionalBunjaRef(graphRef);
-    } else if (edge === "required") {
-      frame.currentBunja.addRequiredBunjaRef(graphRef);
-    }
     const resolved = this.#resolveBunjaRef(
       graphRef,
       frame.readScope,
@@ -729,11 +718,14 @@ export class BunjaStore {
           return readScope(dep as Scope<unknown>);
         }
         if (dep instanceof Bunja || isBunjaRef(dep)) {
-          const bunjaRef = normalizeBunjaRuntimeRef(dep, scopeValuePairs);
-          return this.#prebakeBunjaDependencyInFrame(
-            frame,
-            toBunjaGraphRef(bunjaRef),
-            "required",
+          const bunjaRef = toBunjaGraphRef(
+            normalizeBunjaRuntimeRef(dep, scopeValuePairs),
+          );
+          currentBunja.addRequiredBunjaRef(bunjaRef);
+          return this.#prebakeBunjaRef(
+            bunjaRef,
+            readScope,
+            prebakeContext,
           );
         }
         throw new Error("`bunja.use` can only be used with Bunja or Scope.");
@@ -763,22 +755,6 @@ export class BunjaStore {
       effect: noop,
     } satisfies BunjaPrebakeFrame;
     return frame;
-  }
-  #prebakeBunjaDependencyInFrame<T, Seed>(
-    frame: BunjaPrebakeFrame,
-    bunjaRef: NormalizedBunjaRef<T, Seed>,
-    edge: BunjaDependencyEdge,
-  ): T {
-    if (edge === "optional" || bunjaRef.scopeValuePairs.length > 0) {
-      frame.currentBunja.addOptionalBunjaRef(bunjaRef);
-    } else if (edge === "required") {
-      frame.currentBunja.addRequiredBunjaRef(bunjaRef);
-    }
-    return this.#prebakeBunjaRef(
-      bunjaRef,
-      frame.readScope,
-      frame.prebakeContext,
-    );
   }
   #resolveScopeInstanceMap(
     bunja: AnyBunja,
@@ -988,8 +964,11 @@ export class Bunja<T, Seed = NoSeed> {
     const requiredBunjas = this.requiredBunjas;
     const expandedRequiredBunjas = toposortRequiredBunjas(requiredBunjas);
     const requiredScopeSet = new Set<Scope<unknown>>();
-    for (const bunja of expandedRequiredBunjas) {
-      for (const scope of bunja.requiredScopes) requiredScopeSet.add(scope);
+    for (const ref of requiredBunjaRefs) {
+      const boundScopes = getBoundScopeSet(ref.scopeValuePairs);
+      for (const scope of ref.bunja.requiredScopes) {
+        if (!boundScopes.has(scope)) requiredScopeSet.add(scope);
+      }
     }
     for (const scope of scopes) requiredScopeSet.add(scope);
     const requiredScopes = Array.from(requiredScopeSet);
