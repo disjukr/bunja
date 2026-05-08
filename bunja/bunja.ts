@@ -3,18 +3,21 @@
 const __DEV__ = process.env.NODE_ENV !== "production";
 
 export interface BunjaFn {
-  <T>(init: () => T): Bunja<T, NoSeed>;
+  <T>(init: () => T): Bunja<T, undefined>;
   withSeed: BunjaWithSeedFn;
   use: BunjaUseFn;
   will: BunjaWillFn;
   effect: BunjaEffectFn;
 }
 export const bunja: BunjaFn = bunjaFn;
-function bunjaFn<T>(init: () => T): Bunja<T, NoSeed> {
-  return new Bunja(() => init(), NO_SEED);
+function bunjaFn<T>(init: () => T): Bunja<T, undefined> {
+  return new Bunja(() => init(), undefined);
 }
-const NO_SEED = Symbol("bunja.noSeed");
-export type NoSeed = typeof NO_SEED;
+
+export type BunjaWithSeedFn = <Seed, T>(
+  defaultSeed: Seed,
+  init: (seed: Seed) => T,
+) => Bunja<T, Seed>;
 bunjaFn.withSeed = function withSeed<Seed, T>(
   defaultSeed: Seed,
   init: (seed: Seed) => T,
@@ -43,22 +46,7 @@ bunjaFn.effect =
   ((callback: BunjaEffectCallback) =>
     getCurrentFrame("`bunja.effect`").effect(callback)) as BunjaEffectFn;
 
-export type BunjaWithSeedFn = <Seed, T>(
-  defaultSeed: Seed,
-  init: (seed: Seed) => T,
-) => Bunja<T, Seed>;
 export type ScopeValuePairs = ScopeValuePair<any>[];
-type BunjaRefBase<T, Seed> = {
-  bunja: Bunja<T, Seed>;
-  with?: ScopeValuePairs;
-};
-export type BunjaGetRef<T, Seed = NoSeed> =
-  & BunjaRefBase<T, Seed>
-  & ([Seed] extends [NoSeed] ? { seed?: never } : { seed?: Seed });
-export type BunjaRef<T, Seed = NoSeed> = BunjaGetRef<T, Seed>;
-type BunjaPrebakeRef<T, Seed = NoSeed> = BunjaRefBase<T, Seed> & {
-  seed?: never;
-};
 export interface BunjaUseFn {
   <T>(dep: Scope<T>): T;
   <T, Seed>(dep: Bunja<T, Seed>): T;
@@ -75,6 +63,18 @@ export interface BunjaWillFn {
 }
 export type BunjaEffectFn = (callback: BunjaEffectCallback) => void;
 export type BunjaEffectCallback = () => (() => void) | void;
+
+export interface BunjaRef<T, Seed = undefined> extends BunjaRefBase<T, Seed> {
+  seed?: [Seed] extends [undefined] ? never : Seed;
+}
+export type BunjaGetRef<T, Seed = undefined> = BunjaRef<T, Seed>;
+export interface BunjaPrebakeRef<T, Seed> extends BunjaRefBase<T, Seed> {
+  seed?: never;
+}
+interface BunjaRefBase<T, Seed> {
+  bunja: Bunja<T, Seed>;
+  with?: ScopeValuePairs;
+}
 
 export function createScope<T>(hash?: HashFn<T>): Scope<T> {
   return new Scope(hash);
@@ -891,7 +891,7 @@ export function delayUnmount(
   };
 }
 
-export class Bunja<T, Seed = NoSeed> {
+export class Bunja<T, Seed = undefined> {
   private static counter: number = 0;
   readonly id: string = String(Bunja.counter++);
   debugLabel: string = "";
