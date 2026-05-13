@@ -53,7 +53,7 @@
   },
   "scripts": {
     "clean": "rm -rf ./dist",
-    "build": "tsdown"
+    "build": "tsdown --format cjs && tsdown --format esm --no-clean"
   },
   "keywords": [
     "bunja",

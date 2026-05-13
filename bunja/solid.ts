@@ -14,6 +14,7 @@ import {
 } from "solid-js";
 import {
   type Bunja,
+  type BunjaGetRef,
   type BunjaStore,
   createBunjaStore,
   createReadScopeFn,
@@ -21,7 +22,7 @@ import {
   type HashFn,
   type ReadScope,
   type Scope,
-  type ScopeValuePair,
+  type ScopeValuePairs,
 } from "./bunja.ts";
 
 type MaybeAccessor<T> = T | Accessor<T>;
@@ -82,8 +83,8 @@ const defaultReadScope: ReadScope = <T>(scope: Scope<T>) => {
 };
 
 export function useBunja<T>(
-  bunja: MaybeAccessor<Bunja<T>>,
-  scopeValuePairs?: MaybeAccessor<ScopeValuePair<any>[]>,
+  bunja: MaybeAccessor<Bunja<T, any> | BunjaGetRef<T, any>>,
+  scopeValuePairs?: MaybeAccessor<ScopeValuePairs>,
 ): Accessor<T> {
   const store = useContext(BunjaStoreContext);
   const readScope = createMemo(() => {

@@ -69,6 +69,26 @@ function MyComponent() {
 }
 ```
 
+#### Seeding the first instance
+
+If a bunja needs creation-time data, use `bunja.withSeed`. A default seed is
+required when the bunja is declared, so callers may still omit the seed.
+
+The seed is used only when a matching bunja instance is first created. It is not
+part of the bunja instance identity. If the matching instance already exists,
+later seeds are ignored.
+
+Seeds can be supplied to `store.get`, `useBunja`, `bunja.use`, or `bunja.will`.
+
+```ts
+const formBunja = bunja.withSeed({ title: "" }, (seed) => {
+  const titleAtom = atom(seed.title);
+  return { titleAtom };
+});
+
+useBunja({ bunja: formBunja, seed: { title: "Draft" } });
+```
+
 ### Defining a Bunja that relies on other Bunja
 
 If you want to manage a state with a broad lifetime and another state with a
@@ -156,6 +176,112 @@ either `resourceFooBunja` or `resourceBarBunja`, since they depend on
 >
 > See: <https://github.com/facebook/react/issues/16728>
 
+#### Bunja init rules
+
+Inside a bunja initialization function, call `bunja.use` and `bunja.will`
+unconditionally and in the same order every time, similar to React's
+[Rules of Hooks](https://react.dev/reference/rules/rules-of-hooks). Do not put
+them inside `if` statements, loops, or callbacks.
+
+The target passed to `bunja.use` or `bunja.will` must be static. If you pass
+scope value pairs as the second argument or through a bunja ref's `with` field,
+the list of scope bindings must also be static. Do not choose a different bunja
+or add/remove scope bindings based on runtime conditions.
+
+`seed` is the exception. A bunja ref may provide a dynamic `seed` value because
+seed is used only when creating the first matching bunja instance and is not
+recorded in the dependency graph.
+
+```ts
+const consumerBunja = bunja.withSeed({ currentUserId: "" }, (seed) => {
+  const getProfile = bunja.will({
+    // Must stay the same on every init.
+    bunja: profileBunja,
+    with: [
+      // Must stay the same on every init.
+      LocaleScope.bind("en-US"),
+    ],
+    // May change for each first instance creation.
+    seed: { currentUserId: seed.currentUserId },
+  });
+
+  return getProfile();
+});
+```
+
+If a dependency should only be used for one branch, declare it with `bunja.will`
+unconditionally, then branch on whether to call the returned thunk.
+
+#### Conditional dependencies
+
+Use `bunja.will` when a bunja may depend on another bunja only for a selected
+branch. `bunja.will` declares a possible dependency and returns a thunk. Only a
+called thunk becomes an active dependency and is mounted.
+
+The thunk may only be called during the same bunja initialization function that
+created it.
+
+```ts
+const resourceA = bunja(() => {
+  const { send } = bunja.use(websocketBunja);
+  bunja.effect(() => {
+    send("subscribe-a");
+    return () => send("unsubscribe-a");
+  });
+});
+
+const resourceB = bunja(() => {
+  const { send } = bunja.use(websocketBunja);
+  bunja.effect(() => {
+    send("subscribe-b");
+    return () => send("unsubscribe-b");
+  });
+});
+
+const selectedResourceBunja = bunja(() => {
+  const selected = bunja.use(SelectedResourceScope);
+  const useA = bunja.will(resourceA);
+  const useB = bunja.will(resourceB);
+
+  return selected === "a" ? useA() : useB();
+});
+```
+
+When a `bunja.will` thunk is called, the selected dependency becomes part of the
+current bunja instance. If that selected dependency resolves to a different
+instance because of scope values, the current bunja also resolves to a different
+instance.
+
+A declared but uncalled `bunja.will` dependency has no effect on the current
+bunja instance.
+
+#### Prebaking the dependency graph
+
+During normal `store.get` and `useBunja`, only the selected `bunja.will` branch
+is baked. If a declared `bunja.will` dependency is not called, that dependency's
+own dependencies may still be unknown. `store.prebake` can be used by devtools
+or debugging code to visit those declared dependencies and fill in the graph.
+
+Prebaking runs bunja init functions in a dry graph-collection mode. It does not
+create ref-counted bunja instances, it does not mount dependencies, and it does
+not run `bunja.effect` callbacks. Prebake still calls bunja init functions, so
+put external resource creation and subscriptions inside `bunja.effect` if they
+must not run during graph collection.
+
+`store.prebake` rejects root bunja refs that provide a seed. During dry-run
+initialization, bunja refs are converted to graph refs, so every prebaked bunja
+is initialized with its declared default seed.
+
+```ts
+const result = store.prebake(selectedResourceBunja, readScope);
+
+result.relatedBunjas;
+result.requiredScopes;
+```
+
+The normal `store.get` and `useBunja` paths do not prebake automatically. They
+still mount only the active `bunja.will` branch.
+
 ### Dependency injection using Scope
 
 You can use a bunja for local state management.\
@@ -239,6 +365,11 @@ const UrlContext = createContext("https://example.com/");
 const UrlScope = createScopeFromContext(UrlContext);
 ```
 
+When using React 19, Bunja reads scope contexts lazily with `React.use`, so only
+the contexts needed by the active branch are read. With React 18, Bunja must
+read all bound contexts before resolving the bunja because `useContext` cannot
+be called conditionally. In React 18, call `bindScope` before rendering.
+
 #### Injecting dependencies directly into the scope
 
 You might want to use a bunja directly within a React component where the values
@@ -260,15 +391,15 @@ function MyComponent() {
 
 ##### Doing the same thing inside a bunja
 
-You can use `bunja.fork` to inject scope values from within a bunja
-initialization function.
+You can pass scope value pairs as the second argument to `bunja.use` to override
+scope values from within a bunja initialization function.
 
 ```ts
 const myBunja = bunja(() => {
-  const fooData = bunja.fork(fetchBunja, [
+  const fooData = bunja.use(fetchBunja, [
     UrlScope.bind("https://example.com/foo"),
   ]);
-  const barData = bunja.fork(fetchBunja, [
+  const barData = bunja.use(fetchBunja, [
     UrlScope.bind("https://example.com/bar"),
   ]);
 

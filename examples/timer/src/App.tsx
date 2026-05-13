@@ -12,14 +12,13 @@ export function App() {
 
   const renderItem = (item: Item) => {
     const commonProps = {
-      key: item.id,
       id: item.id,
       onRemove: () => remove(item.id),
     };
 
     return item.type === "timer"
-      ? <Timer {...commonProps} />
-      : <Countdown {...commonProps} />;
+      ? <Timer key={item.id} {...commonProps} />
+      : <Countdown key={item.id} {...commonProps} />;
   };
 
   return (
