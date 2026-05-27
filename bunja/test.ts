@@ -82,6 +82,39 @@ Deno.test({
 });
 
 Deno.test({
+  name: "dependency effects mount and cleanup before consumer effects",
+  fn() {
+    const store = createBunjaStore();
+    const order: string[] = [];
+    const dependencyBunja = bunja(() => {
+      bunja.effect(() => {
+        order.push("dependency mount");
+        return () => order.push("dependency cleanup");
+      });
+    });
+    const consumerBunja = bunja(() => {
+      bunja.use(dependencyBunja);
+      bunja.effect(() => {
+        order.push("consumer mount");
+        return () => order.push("consumer cleanup");
+      });
+    });
+
+    const { mount } = store.get(consumerBunja, readNull);
+    const cleanup = mount();
+    assertEquals(order, ["dependency mount", "consumer mount"]);
+
+    cleanup();
+    assertEquals(order, [
+      "dependency mount",
+      "consumer mount",
+      "dependency cleanup",
+      "consumer cleanup",
+    ]);
+  },
+});
+
+Deno.test({
   name: "A mount first, B mount later & A unmount first, B unmount later",
   fn() {
     const store = createBunjaStore();
@@ -477,6 +510,40 @@ Deno.test({
     cleanup();
     assertSpyCalls(aUnmountSpy, 1);
     assertSpyCalls(bUnmountSpy, 0);
+  },
+});
+
+Deno.test({
+  name: "active bunja.will dependency effects cleanup before consumer effects",
+  fn() {
+    const store = createBunjaStore();
+    const order: string[] = [];
+    const dependencyBunja = bunja(() => {
+      bunja.effect(() => {
+        order.push("dependency mount");
+        return () => order.push("dependency cleanup");
+      });
+    });
+    const consumerBunja = bunja(() => {
+      const getDependency = bunja.will(dependencyBunja);
+      getDependency();
+      bunja.effect(() => {
+        order.push("consumer mount");
+        return () => order.push("consumer cleanup");
+      });
+    });
+
+    const { mount } = store.get(consumerBunja, readNull);
+    const cleanup = mount();
+    assertEquals(order, ["dependency mount", "consumer mount"]);
+
+    cleanup();
+    assertEquals(order, [
+      "dependency mount",
+      "consumer mount",
+      "dependency cleanup",
+      "consumer cleanup",
+    ]);
   },
 });
 
