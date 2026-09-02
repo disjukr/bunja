@@ -10,6 +10,7 @@ import {
   type JSX,
   onCleanup,
   type ParentProps,
+  runWithOwner,
   useContext,
 } from "solid-js";
 import {
@@ -86,12 +87,14 @@ export function useBunja<T>(
   bunja: MaybeAccessor<Bunja<T, any> | BunjaGetRef<T, any>>,
   scopeValuePairs?: MaybeAccessor<ScopeValuePairs>,
 ): Accessor<T> {
+  const owner = getOwner();
   const store = useContext(BunjaStoreContext);
   const readScope = createMemo(() => {
     const pairs = access(scopeValuePairs);
-    return pairs
+    const impl = pairs
       ? createReadScopeFn(pairs, defaultReadScope)
       : defaultReadScope;
+    return <T>(scope: Scope<T>) => runWithOwner(owner, () => impl(scope)) as T;
   });
   const entry = createMemo(() => store.get(access(bunja), readScope()));
   createEffect(() => {
