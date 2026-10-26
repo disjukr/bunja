@@ -1,6 +1,6 @@
 # Current consumer patterns
 
-Use `bunja`, `createScope`, `createReadScopeFn`, and `createBunjaStore` from `bunja`. The executable [model](../examples/model.ts) uses the package import. Resolve it through the consumer app's dependency configuration; repository verification maps it to the inspected current source.
+Use `bunja`, `createScope`, `createReadScopeFn`, and `createBunjaStore` from `bunja`. The executable [model](../examples/model.ts) uses the package import. Resolve it through the consumer app's dependency configuration.
 
 ## Identity and initialization
 
