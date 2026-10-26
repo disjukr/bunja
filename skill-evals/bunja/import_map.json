@@ -1,0 +1,5 @@
+{
+  "imports": {
+    "bunja": "../../bunja/bunja.ts"
+  }
+}
