@@ -27,6 +27,6 @@ Call a `will` thunk only during the same initialization that declared it. An unc
 
 Effects start when mounted, not on `store.get` alone. Return cleanup from each resource-owning effect. Dependencies mount before consumer effects and their final cleanup also runs **before** consumer cleanup. Consumer teardown must not send through an already-closed dependency; unsubscribe handles should be independently safe after service shutdown. Keep resources that require coordinated teardown in one owner when appropriate.
 
-Inject storage/RPC implementations through scopes, and inject the state store too when it defines a separate domain. Read persistence during instance initialization rather than at module import. Resolve a replacement scope value and release old consumers; changing a seed will not replace a service.
+Inject storage/RPC implementations through scopes, and inject the state store too when it defines a separate instance boundary. Read persistence during instance initialization rather than at module import. Resolve a replacement scope value and release old consumers; changing a seed will not replace a service.
 
 Cleanup alone does not cancel promises. Invalidate a lifetime token, abort where supported, and check both lifetime and request generation before success **and error** writes. A boolean alone can accept an old response after remount. Also invalidate on in-instance service/session replacement, and stop stream iterators/subscriptions. Do not reset a shared instance when only one of several consumers leaves.
