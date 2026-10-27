@@ -16,4 +16,4 @@ function View() {
 
 Declare model/scope definitions outside rendering. Keep injected service identities stable. Use `BunjaStoreProvider` at the intended store boundary; separate providers create separate stores, and provider disposal ends its instances. A scope context boundary and a Bunja store boundary serve different purposes.
 
-The adapter schedules delayed unmount for effect cleanup. Verify partial/final removal and scope replacement after flushing the actual scheduler, including development effect replay; do not assert synchronous React cleanup from core-store tests. Never acquire a socket in init just because render asked for a value. Inspect the current adapter for context binding and rendering constraints before wiring the app.
+The adapter schedules delayed unmount for effect cleanup. Account for delayed release during partial/final removal, scope replacement, and development effect replay; cleanup need not happen synchronously when a component leaves. Never acquire a socket in init just because render asked for a value. Inspect the current adapter for context binding and rendering constraints before wiring the app.
