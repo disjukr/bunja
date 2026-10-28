@@ -20,5 +20,5 @@ jobs:
           deno-version: v2.7.13
 
       - name: Run tests
-        run: deno test --allow-env
+        run: deno test --conditions=browser --allow-env
         working-directory: ./bunja
