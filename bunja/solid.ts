@@ -78,25 +78,35 @@ export function createScopeFromContext<T>(
   return scope;
 }
 
-const defaultReadScope: ReadScope = <T>(scope: Scope<T>) => {
-  const context = scopeContextMap.get(scope as Scope<unknown>)!;
-  return access(useContext(context)) as T;
-};
-
 export function useBunja<T>(
   bunja: MaybeAccessor<Bunja<T, any> | BunjaGetRef<T, any>>,
   scopeValuePairs?: MaybeAccessor<ScopeValuePairs>,
 ): Accessor<T> {
   const owner = getOwner();
   const store = useContext(BunjaStoreContext);
+  const defaultReadScope: ReadScope = <T>(scope: Scope<T>) => {
+    const context = scopeContextMap.get(scope as Scope<unknown>)!;
+    // Restore the consumer context without untracking its accessor.
+    return access(runWithOwner(owner, () => useContext(context))) as T;
+  };
   const readScope = createMemo(() => {
     const pairs = access(scopeValuePairs);
-    const impl = pairs
+    return pairs
       ? createReadScopeFn(pairs, defaultReadScope)
       : defaultReadScope;
-    return <T>(scope: Scope<T>) => runWithOwner(owner, () => impl(scope)) as T;
   });
-  const entry = createMemo(() => store.get(access(bunja), readScope()));
+  const entry = createMemo(() => {
+    const read = readScope();
+    const scopes = new Set<Scope<unknown>>();
+    const result = store.get(access(bunja), (scope) => {
+      scopes.add(scope as Scope<unknown>);
+      return read(scope);
+    });
+    // Initial scope discovery can run inside the instance's untracked root.
+    // Subscribe here as well, including scopes reached through dependencies.
+    for (const scope of scopes) read(scope);
+    return result;
+  });
   createEffect(() => {
     const cleanup = entry().mount();
     onCleanup(() => setTimeout(cleanup));
