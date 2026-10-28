@@ -1,0 +1,13 @@
+# Decide the ownership contract
+
+Write a small ownership table for each concern: state/resource, sharing key, instance boundary, start/end, and replaceable dependencies. A concern describes related behavior; a scope value identifies which instances share that behavior. A document ID, storage implementation, service object, and reactive store can each contribute a distinct scope identity.
+
+For example, two consumers may bind different service objects to `ServiceScope`: consumer A receives service A and consumer B receives service B. Each resolved model must keep using its own injected service for subscriptions and later actions. A call by consumer B must not change which service consumer A uses. Read the service from its scope during initialization and capture it in the instance's actions, rather than looking up a mutable global selection on each call. Consumers bound to the same service object can share an instance when their other scope bindings match.
+
+Prefer keeping independent input state local. Global state and effects are also candidates for Bunja: authentication, telemetry, or a transport can have an app-wide owner and still be molecules. Extract them when doing so is straightforward and provides useful sharing or ownership. Keeping the existing arrangement is reasonable when migration is difficult or its cost exceeds its benefit. A provider or explicit owner may also be sufficient.
+
+Sharing includes derived objects and effects, not only values. Two calls to a custom Hook share code; they do not inherently share a derived object or subscription instance. Look for repeated allocations, subscriptions, and effect setup across consumers, and consider whether a shared molecule can reduce those instances. A query cache may share fetched values while consumers still duplicate derived objects or subscriptions; inspect those separately. Keep an existing cache when useful, without treating it as the preferred answer to instance sharing.
+
+Consider four questions together: which consumers need the same instance, what keeps it alive, which derived objects or effects should be shared, and which state and actions belong to one concern. Keep related state, actions, and resource ownership together behind a small consumer interface. Separate unrelated concerns so consumers can choose only the dependencies they need.
+
+Several useEffect calls in one component are a useful prompt to inspect those boundaries: unrelated state and effects may belong to separate, shareable concerns. The number alone is not a defect, and effects tied to a particular DOM node or UI interaction can remain in the component.
