@@ -8,6 +8,12 @@ Use one `BunjaStoreProvider` near the application root by default: Bunja provide
 
 In React and Solid, prefer context/provider injection so descendants consume shared concerns without repeating bindings. Recommend direct bindings only when a molecule is used at a single call site, or when the value is created in that component and extracting a child solely to place a provider would be awkward. See the framework references for provider wiring. Outside a framework tree, explicit `createReadScopeFn`/store resolution remains appropriate; framework context is not available there.
 
+## Static definitions, scoped instances
+
+Treat a Bunja definition like a class: declare it statically, normally at module scope, and reuse it. Each `bunja()`/`bunja.withSeed()` call creates a new definition identity; varying scope values resolves instances of that definition, not new definitions. Pass per-consumer data and replaceable services through scopes, and creation-only data through seeds.
+
+Avoid factories that repeatedly return new Bunja definitions during rendering, repeated calls, or request handling. This defeats sharing and risks unbounded retention: the store retains resolved instances until disposal, and the development devtools registry retains definitions even after instance cleanup. Normal final release removes store instances; do not assume it also releases every definition reference. A factory called once during module initialization to create a fixed definition is not inherently a leak. Prefer reusing static definitions and injecting different services/stores over introducing molecule-creation factories as the default isolation mechanism.
+
 ## Identity and initialization
 
 `bunja.use(Scope)` makes the scope value part of instance resolution in a store. Default scope hashing uses identity; stabilize service objects rather than allocating them per render. A custom hash deliberately merges values: do not hash services by a label if replacing an implementation must create another instance. Unread scopes do not automatically isolate a bunja; scopes used by active dependencies also affect resolution.
