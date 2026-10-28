@@ -2,6 +2,10 @@
 
 Use `bunja`, `createScope`, `createReadScopeFn`, and `createBunjaStore` from `bunja`. The executable [model](../examples/model.ts) illustrates an app already using Jotai: scoped state stores, atoms, and guarded actions. Resolve imports through the consumer app's dependency configuration; keep another existing signal/atom library when appropriate. Expose reactive primitives and actions to views through that library's framework binding, rather than turning plain mutable fields into a new snapshot/subscription protocol.
 
+## Scope injection
+
+In React and Solid, prefer context/provider injection so descendants consume shared concerns without repeating bindings. Recommend direct bindings only when a molecule is used at a single call site, or when the value is created in that component and extracting a child solely to place a provider would be awkward. See the framework references for provider wiring. Outside a framework tree, explicit `createReadScopeFn`/store resolution remains appropriate; framework context is not available there.
+
 ## Identity and initialization
 
 `bunja.use(Scope)` makes the scope value part of instance resolution in a store. Default scope hashing uses identity; stabilize service objects rather than allocating them per render. A custom hash deliberately merges values: do not hash services by a label if replacing an implementation must create another instance. Unread scopes do not automatically isolate a bunja; scopes used by active dependencies also affect resolution.

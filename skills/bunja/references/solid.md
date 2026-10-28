@@ -5,22 +5,34 @@ Import adapters from `bunja/solid`. `useBunja` returns an **Accessor**, unlike R
 Keep view-facing state in Solid `createSignal`/stores or the app's existing reactive primitives and their supported Solid bindings. Bunja owns the instance and resources; it does not replace reactive tracking. Do not build a manual snapshot/subscription bridge for state that can already be read reactively.
 
 ```tsx
-import { bunja, createScope } from "bunja";
-import { useBunja } from "bunja/solid";
-import { createSignal } from "solid-js";
+import { bunja } from "bunja";
+import { BunjaStoreProvider, createScopeFromContext, useBunja } from "bunja/solid";
+import { createContext, createSignal } from "solid-js";
 
-const ScreenScope = createScope<string>();
+const ScreenContext = createContext("preview");
+const ScreenScope = createScopeFromContext(ScreenContext);
 const counter = bunja(() => {
   bunja.use(ScreenScope);
   const [count, setCount] = createSignal(0);
   return { count, setCount };
 });
-function View(props: { screenId: string }) {
-  const state = useBunja(counter, () => [ScreenScope.bind(props.screenId)]);
+function Counter() {
+  const state = useBunja(counter);
   return <button onClick={() => state().setCount(n => n + 1)}>{state().count()}</button>;
+}
+function Screen(props: { screenId: string }) {
+  return (
+    <BunjaStoreProvider>
+      <ScreenContext.Provider value={props.screenId}>
+        <Counter />
+      </ScreenContext.Provider>
+    </BunjaStoreProvider>
+  );
 }
 ```
 
-Call from a Solid owner. Dynamic bindings can be supplied through an accessor. Scope contexts can hold values or accessors; ensure a function-valued service is not accidentally treated as a context accessor (wrap it in an object).
+Call from a Solid owner. `createScopeFromContext(context)` creates and registers a scope; `bindScope(existingScope, context)` registers an existing one. A scope context supplies values down the component tree; `BunjaStoreProvider` establishes a separate instance-sharing/lifetime boundary. Put that store boundary around consumers that should share instances.
+
+Prefer context/provider injection as above. Reserve `useBunja(counter, () => [ScreenScope.bind(props.screenId)])` for the [limited direct-binding cases](patterns.md#scope-injection). Explicit bindings override those scopes; other scopes fall back to context. Context values may be accessors, but changing a context accessor does not reliably re-resolve an already mounted molecule in the current adapter. Mount the context example for a fixed identity and recreate its consumer subtree when replacing that identity. Keep service objects stable when replacement is not intended. Wrap function-valued services in an object so they are not treated as context accessors.
 
 The adapter uses `createRoot` to wrap instances, and its provider captures the owner for those roots. Preserve this ownership when integrating Solid signals/effects; do not use an unwrapped core store for Solid reactive resources without an appropriate `wrapInstance` root strategy. Provider cleanup disposes the store. Adapter unmount cleanup is delayed with a timer: allow for that delay when reasoning about final teardown or replacement. Keep reactive resources attached to the appropriate Solid owner.

@@ -6,23 +6,28 @@ Keep reusable state, actions, and resources independent of React's calling conte
 
 For view-facing state, keep the app's existing signal/atom primitives. Do not default to writing an application-level `subscribe`/`getSnapshot`/`useSyncExternalStore` adapter, or forwarding a model through effect → `setState` with an `attached`/`key` handshake. This is an application integration choice, not a ban on external-store APIs or on libraries that use them internally. Preserve a required existing external-store contract when adapting it, rather than inventing a new one for Bunja. Do not add a state library solely to follow this example.
 
-For an app already using Jotai:
+Use context/provider injection by default; reserve direct bindings for the [limited cases](patterns.md#scope-injection). For an app already using Jotai:
 
 ```tsx
-import { bunja, createScope } from "bunja";
-import { useBunja } from "bunja/react";
+import { bunja } from "bunja";
+import { createContext } from "react";
+import { createScopeFromContext, useBunja } from "bunja/react";
 import { atom } from "jotai/vanilla";
 import { useAtom } from "jotai/react";
 
-const ScreenScope = createScope<string>();
+const ScreenContext = createContext("preview");
+const ScreenScope = createScopeFromContext(ScreenContext);
 const counter = bunja(() => {
   bunja.use(ScreenScope);
   return { countAtom: atom(0) };
 });
-function View({ screenId }: { screenId: string }) {
-  const { countAtom } = useBunja(counter, [ScreenScope.bind(screenId)]);
+function Counter() {
+  const { countAtom } = useBunja(counter);
   const [count, setCount] = useAtom(countAtom);
   return <button onClick={() => setCount(count + 1)}>{count}</button>;
+}
+function Screen({ screenId }: { screenId: string }) {
+  return <ScreenContext.Provider value={screenId}><Counter /></ScreenContext.Provider>;
 }
 ```
 
