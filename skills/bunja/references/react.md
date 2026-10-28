@@ -11,7 +11,7 @@ Use context/provider injection by default; reserve direct bindings for the [limi
 ```tsx
 import { bunja } from "bunja";
 import { createContext } from "react";
-import { createScopeFromContext, useBunja } from "bunja/react";
+import { BunjaStoreProvider, createScopeFromContext, useBunja } from "bunja/react";
 import { atom } from "jotai/vanilla";
 import { useAtom } from "jotai/react";
 
@@ -29,10 +29,18 @@ function Counter() {
 function Screen({ screenId }: { screenId: string }) {
   return <ScreenContext.Provider value={screenId}><Counter /></ScreenContext.Provider>;
 }
+function App() {
+  return (
+    <BunjaStoreProvider>
+      <Screen screenId="preview" />
+      <Screen screenId="settings" />
+    </BunjaStoreProvider>
+  );
+}
 ```
 
 When molecule actions write through an injected Jotai store, bind that same store to the view's Jotai Provider or pass it in the view Hook's `store` option. In the [model example](../examples/model.ts), actions and view reads must use the same `stateStore`.
 
-Declare model/scope definitions outside rendering. Keep injected service identities stable. Use `BunjaStoreProvider` at the intended store boundary; separate providers create separate stores, and provider disposal ends its instances. A scope context boundary and a Bunja store boundary serve different purposes.
+Declare model/scope definitions outside rendering. Keep injected service identities stable. Keep one `BunjaStoreProvider` near the app root by default, as above. Feature scope contexts select values within that shared DI/store boundary; they do not require another store. Multiple stores require [justified isolation](patterns.md#scope-injection); disposing a store ends its instances.
 
 The adapter schedules delayed unmount for effect cleanup. Account for delayed release during partial/final removal, scope replacement, and development effect replay; cleanup need not happen synchronously when a component leaves. Never acquire a socket in init just because render asked for a value. Inspect the current adapter for context binding and rendering constraints before wiring the app.
