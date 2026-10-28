@@ -1,5 +1,5 @@
 import { bunja, createScope } from "bunja";
-import { atom, type createStore } from "jotai";
+import { atom, type createStore } from "jotai/vanilla";
 
 export const StateStoreScope = createScope<ReturnType<typeof createStore>>();
 
