@@ -4,6 +4,8 @@ Use `bunja`, `createScope`, `createReadScopeFn`, and `createBunjaStore` from `bu
 
 ## Scope injection
 
+Use one `BunjaStoreProvider` near the application root by default: Bunja provides DI as well as instance sharing. Scope context providers can vary by feature or subtree within that store. Add another store provider only for a concrete, justified requirement to isolate instances and their lifetimes; routine scope injection is not such a reason.
+
 In React and Solid, prefer context/provider injection so descendants consume shared concerns without repeating bindings. Recommend direct bindings only when a molecule is used at a single call site, or when the value is created in that component and extracting a child solely to place a provider would be awkward. See the framework references for provider wiring. Outside a framework tree, explicit `createReadScopeFn`/store resolution remains appropriate; framework context is not available there.
 
 ## Identity and initialization

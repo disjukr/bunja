@@ -21,17 +21,19 @@ function Counter() {
   return <button onClick={() => state().setCount(n => n + 1)}>{state().count()}</button>;
 }
 function Screen(props: { screenId: string }) {
+  return <ScreenContext.Provider value={props.screenId}><Counter /></ScreenContext.Provider>;
+}
+function App() {
   return (
     <BunjaStoreProvider>
-      <ScreenContext.Provider value={props.screenId}>
-        <Counter />
-      </ScreenContext.Provider>
+      <Screen screenId="preview" />
+      <Screen screenId="settings" />
     </BunjaStoreProvider>
   );
 }
 ```
 
-Call from a Solid owner. `createScopeFromContext(context)` creates and registers a scope; `bindScope(existingScope, context)` registers an existing one. A scope context supplies values down the component tree; `BunjaStoreProvider` establishes a separate instance-sharing/lifetime boundary. Put that store boundary around consumers that should share instances.
+Call from a Solid owner. `createScopeFromContext(context)` creates and registers a scope; `bindScope(existingScope, context)` registers an existing one. A scope context supplies values down the component tree; `BunjaStoreProvider` establishes a separate instance-sharing/lifetime boundary. Keep one store provider near the app root by default, as above; feature scope contexts stay inside it. Add another store only for [justified isolation](patterns.md#scope-injection), not routine scope injection.
 
 Prefer context/provider injection as above. Reserve `useBunja(counter, () => [ScreenScope.bind(props.screenId)])` for the [limited direct-binding cases](patterns.md#scope-injection). Explicit bindings override those scopes; other scopes fall back to context. Context values may be accessors, but changing a context accessor does not reliably re-resolve an already mounted molecule in the current adapter. Mount the context example for a fixed identity and recreate its consumer subtree when replacing that identity. Keep service objects stable when replacement is not intended. Wrap function-valued services in an object so they are not treated as context accessors.
 
