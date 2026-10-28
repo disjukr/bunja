@@ -1,6 +1,6 @@
 # Current consumer patterns
 
-Use `bunja`, `createScope`, `createReadScopeFn`, and `createBunjaStore` from `bunja`. The executable [model](../examples/model.ts) uses the package import. Resolve it through the consumer app's dependency configuration.
+Use `bunja`, `createScope`, `createReadScopeFn`, and `createBunjaStore` from `bunja`. The executable [model](../examples/model.ts) illustrates an app already using Jotai: scoped state stores, atoms, and guarded actions. Resolve imports through the consumer app's dependency configuration; keep another existing signal/atom library when appropriate. Expose reactive primitives and actions to views through that library's framework binding, rather than turning plain mutable fields into a new snapshot/subscription protocol.
 
 ## Identity and initialization
 

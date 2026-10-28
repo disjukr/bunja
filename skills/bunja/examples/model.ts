@@ -1,4 +1,7 @@
 import { bunja, createScope } from "bunja";
+import { atom, type createStore } from "jotai";
+
+export const StateStoreScope = createScope<ReturnType<typeof createStore>>();
 
 export interface Service {
   load(signal: AbortSignal): Promise<string>;
@@ -16,13 +19,15 @@ export const preferences = bunja(() => {
   const screen = bunja.use(ScreenScope);
   const storage = bunja.use(StorageScope);
   const key = `filter:${screen}`;
-  let filter = storage.getItem(key) ?? "";
+  const stateStore = bunja.use(StateStoreScope);
+  const filterAtom = atom(storage.getItem(key) ?? "");
   return {
-    read: () => filter,
+    stateStore,
+    filterAtom,
     set(value: string) {
       // Preserve storage errors rather than pretending persistence succeeded.
       storage.setItem(key, value);
-      filter = value;
+      stateStore.set(filterAtom, value);
     },
   };
 });
@@ -30,8 +35,9 @@ export const preferences = bunja(() => {
 export const model = bunja.withSeed({ title: "" }, (seed) => {
   const screen = bunja.use(ScreenScope);
   const service = bunja.use(ServiceScope);
-  let title = seed.title;
-  let error: unknown;
+  const stateStore = bunja.use(StateStoreScope);
+  const titleAtom = atom(seed.title);
+  const errorAtom = atom<unknown>(undefined);
   let active = false;
   let lifetime = 0;
   let request = 0;
@@ -59,14 +65,14 @@ export const model = bunja.withSeed({ title: "" }, (seed) => {
     try {
       const result = await service.load(controller.signal);
       if (current()) {
-        title = result;
-        error = undefined;
+        stateStore.set(titleAtom, result);
+        stateStore.set(errorAtom, undefined);
       }
     } catch (cause) {
-      if (current()) error = cause;
+      if (current()) stateStore.set(errorAtom, () => cause);
     }
   }
-  return { screen, refresh, snapshot: () => ({ title, error }) };
+  return { screen, stateStore, titleAtom, errorAtom, refresh };
 });
 
 export const ModeScope = createScope<"a" | "b">();
