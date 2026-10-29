@@ -50,13 +50,12 @@ From the repository root, install [mise](https://mise.jdx.dev/), then run:
 
 ```sh
 mise install
-mise exec -- pnpm install --frozen-lockfile
-mise exec -- pnpm --filter bunja build
+pnpm install --frozen-lockfile
+pnpm --filter bunja build
 ```
 
 Node.js 26.13.0 and pnpm 12.16.1 are pinned in `mise.toml`. Run the commands
-below from this example directory inside `mise exec -- ...` if mise is not
-activated in your shell. Rebuild Bunja after editing library code, or run its
+below from this example directory. Rebuild Bunja after editing library code, or run its
 build with `--watch` in another terminal.
 
 ### 2. Install Dependencies
