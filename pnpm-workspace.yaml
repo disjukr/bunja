@@ -1,0 +1,7 @@
+packages:
+  - bunja
+  - devtools/*
+  - examples/*
+
+allowBuilds:
+  esbuild: true

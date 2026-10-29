@@ -1,8 +1,9 @@
+import { test } from "node:test";
 import {
-  assertEquals,
-  assertNotStrictEquals,
-  assertStrictEquals,
-} from "@std/assert";
+  deepStrictEqual,
+  notStrictEqual,
+  strictEqual,
+} from "node:assert";
 import {
   createComponent,
   createContext,
@@ -23,7 +24,7 @@ for (
   const mode of ["context accessor", "bindScope accessor", "explicit binding"]
 ) {
   const explicit = mode === "explicit binding";
-  Deno.test(`Solid ${mode} lifecycle`, async () => {
+  test(`Solid ${mode} lifecycle`, async () => {
     const Context = createContext<string | (() => string)>(() => "default");
     const Scope = mode === "bindScope accessor"
       ? createScope<string>()
@@ -71,21 +72,21 @@ for (
     try {
       await settle();
       const first = value();
-      assertEquals(first.id, "a");
-      assertStrictEquals(other(), first);
-      assertEquals(events, ["start:a"]);
+      deepStrictEqual(first.id, "a");
+      strictEqual(other(), first);
+      deepStrictEqual(events, ["start:a"]);
       change("a");
       await settle();
-      assertStrictEquals(value(), first);
+      strictEqual(value(), first);
       for (const id of ["b", "a"]) {
         const previous = value();
         change(id);
         await settle();
-        assertEquals(value().id, id);
-        assertNotStrictEquals(value(), previous);
-        assertStrictEquals(other(), value());
+        deepStrictEqual(value().id, id);
+        notStrictEqual(value(), previous);
+        strictEqual(other(), value());
       }
-      assertEquals(events, [
+      deepStrictEqual(events, [
         "start:a",
         "start:b",
         "stop:a",
@@ -94,13 +95,13 @@ for (
       ]);
       unmount();
       await settle();
-      assertEquals(events.length, 5);
+      deepStrictEqual(events.length, 5);
     } finally {
       unmount();
       dispose();
       await settle();
     }
-    assertEquals(events, [
+    deepStrictEqual(events, [
       "start:a",
       "start:b",
       "stop:a",
@@ -111,7 +112,7 @@ for (
   });
 }
 
-Deno.test("Solid bindScope, explicit precedence and mixed context fallback", async () => {
+test("Solid bindScope, explicit precedence and mixed context fallback", async () => {
   const Context = createContext<string | null | (() => string | null)>(null);
   const Scope = createScope<string | null>();
   bindScope(Scope, Context);
@@ -149,16 +150,16 @@ Deno.test("Solid bindScope, explicit precedence and mixed context fallback", asy
   try {
     await settle();
     const first = value();
-    assertEquals(first, { id: null, other: "override" });
+    deepStrictEqual(first, { id: null, other: "override" });
     change("b");
     await settle();
-    assertStrictEquals(value(), first);
+    strictEqual(value(), first);
     override(false);
     await settle();
-    assertEquals(value(), { id: null, other: "b" });
+    deepStrictEqual(value(), { id: null, other: "b" });
     change("c");
     await settle();
-    assertEquals(value(), { id: null, other: "c" });
+    deepStrictEqual(value(), { id: null, other: "c" });
   } finally {
     dispose();
     await settle();

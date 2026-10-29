@@ -7,67 +7,33 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
-
     permissions:
       contents: read
       id-token: write
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Deno
-        uses: denoland/setup-deno@v2
-        with:
-          deno-version: v2.7.13
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-          registry-url: "https://registry.npmjs.org"
-
-      - name: Update version in package.json and deno.json
-        run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
-          echo "Updating version to $VERSION"
-
-          # Update package.json
-          deno eval "
-            const packageJson = JSON.parse(Deno.readTextFileSync('package.json'));
-            packageJson.version = '$VERSION';
-            Deno.writeTextFileSync('package.json', JSON.stringify(packageJson, null, 2) + '\n');
-          "
-
-          # Update deno.json
-          deno eval "
-            const denoJson = JSON.parse(Deno.readTextFileSync('deno.json'));
-            denoJson.version = '$VERSION';
-            Deno.writeTextFileSync('deno.json', JSON.stringify(denoJson, null, 2) + '\n');
-          "
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v3
+      - run: pnpm install --frozen-lockfile
+      - name: Set npm and JSR versions from release tag
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: pnpm version:release "$RELEASE_TAG"
+      - run: pnpm check
+      - name: Validate JSR package
+        run: pnpm exec jsr publish --dry-run --allow-dirty
         working-directory: ./bunja
-
-      - name: Install dependencies
-        run: deno install
-        working-directory: ./bunja
-
-      - name: Build for npm
-        run: deno task build
-        working-directory: ./bunja
-
       - name: Publish to npm
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
+          VERSION=${RELEASE_TAG#v}
           NPM_TAG=latest
-
           if [[ "$VERSION" == *-* ]]; then
             NPM_TAG=${VERSION#*-}
             NPM_TAG=${NPM_TAG%%.*}
           fi
-
-          npm publish --provenance --access public --tag "$NPM_TAG"
+          npm publish --provenance --access public --registry https://registry.npmjs.org --tag "$NPM_TAG"
         working-directory: ./bunja
-
       - name: Publish to JSR
-        run: deno publish --allow-dirty
+        run: pnpm exec jsr publish --allow-dirty
         working-directory: ./bunja

@@ -17,7 +17,7 @@ A comprehensive timer and countdown application demonstrating the power of
 
 ## 🛠 Tech Stack
 
-- **[Deno](https://deno.land/)** - Modern TypeScript/JavaScript runtime
+- **[Node.js](https://nodejs.org/)** - JavaScript runtime (managed by mise)
 - **[React](https://react.dev/)** - UI library with hooks
 - **[TypeScript](https://www.typescriptlang.org/)** - Static type checking
 - **[Vite](https://vitejs.dev/)** - Fast development server and build tool
@@ -46,28 +46,30 @@ src/
 
 ## 🚀 Development Setup
 
-### 1. Install Deno
+### 1. Install the pinned toolchain
 
-Deno 2+ is required:
+From the repository root, install [mise](https://mise.jdx.dev/), then run:
 
-```bash
-# Windows (PowerShell)
-irm https://deno.land/install.ps1 | iex
-
-# macOS/Linux
-curl -fsSL https://deno.land/install.sh | sh
+```sh
+mise install
+pnpm install --frozen-lockfile
+pnpm --filter bunja build
 ```
+
+Node.js 26.13.0 and pnpm 12.16.1 are pinned in `mise.toml`. Run the commands
+below from this example directory. Rebuild Bunja after editing library code, or run its
+build with `--watch` in another terminal.
 
 ### 2. Install Dependencies
 
 ```bash
-deno install
+pnpm install --frozen-lockfile
 ```
 
 ### 3. Start Development Server
 
 ```bash
-deno task dev
+pnpm dev
 ```
 
 Visit `http://localhost:5173` in your browser.
@@ -77,7 +79,7 @@ Visit `http://localhost:5173` in your browser.
 ### Production Build
 
 ```bash
-deno task build
+pnpm build
 ```
 
 Built files will be generated in the `dist/` directory.
@@ -87,7 +89,7 @@ Built files will be generated in the `dist/` directory.
 Preview the built application locally:
 
 ```bash
-deno task preview
+pnpm preview
 ```
 
 ## 🧠 Architecture Overview
@@ -185,12 +187,12 @@ This example teaches:
 - **React hooks** with external state libraries
 - **TypeScript** for type-safe development
 - **Modern CSS** techniques and animations
-- **Deno 2 + Vite** development workflow
+- **Node.js + pnpm + Vite** development workflow
 
 ## 🔗 Learn More
 
 - [Bunja Documentation](../../bunja/README.md)
 - [Jotai Documentation](https://jotai.org/)
-- [Deno Documentation](https://deno.land/)
+- [mise Documentation](https://mise.jdx.dev/)
 - [React Documentation](https://react.dev/)
 - [Vite Documentation](https://vitejs.dev/)

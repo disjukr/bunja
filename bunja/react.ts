@@ -26,7 +26,6 @@ import {
 import * as React from "react";
 
 // @ts-ignore dev
-// deno-lint-ignore no-process-global
 const __DEV__ = process.env.NODE_ENV !== "production";
 const reactUse = (React as unknown as {
   use?: <T>(usable: Context<T>) => T;
