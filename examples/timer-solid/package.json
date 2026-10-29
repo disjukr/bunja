@@ -6,14 +6,14 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "bunja": "file:../../bunja",
+    "bunja": "workspace:*",
     "solid-js": "^1.9.7"
   },
   "devDependencies": {
-    "@deno/vite-plugin": "^1.0.5",
     "typescript": "^5.6.3",
     "vite": "^5.0.0",
     "vite-plugin-solid": "^2.11.8"

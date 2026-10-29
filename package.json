@@ -1,0 +1,23 @@
+{
+  "name": "bunja-workspace",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.16.1",
+  "engines": {
+    "node": ">=26.13.0"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "typecheck": "pnpm --filter bunja build && pnpm -r typecheck",
+    "test": "pnpm --filter bunja test",
+    "check:package": "node scripts/check-package.mjs",
+    "check": "pnpm typecheck && pnpm test && pnpm build && pnpm check:package",
+    "version:release": "node scripts/version.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^26",
+    "typescript": "^5.6.3",
+    "jsr": "0.14.3",
+    "esbuild": "^0.25.0"
+  }
+}

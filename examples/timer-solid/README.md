@@ -17,7 +17,7 @@ A comprehensive timer and countdown application demonstrating the power of
 
 ## 🛠 Tech Stack
 
-- **[Deno](https://deno.land/)** - Modern TypeScript/JavaScript runtime
+- **[Node.js](https://nodejs.org/)** - JavaScript runtime (managed by mise)
 - **[Solid](https://www.solidjs.com/)** - UI library with reactive state management
 - **[TypeScript](https://www.typescriptlang.org/)** - Static type checking
 - **[Vite](https://vitejs.dev/)** - Fast development server and build tool
@@ -44,28 +44,31 @@ src/
 
 ## 🚀 Development Setup
 
-### 1. Install Deno
+### 1. Install the pinned toolchain
 
-Deno 2+ is required:
+From the repository root, install [mise](https://mise.jdx.dev/), then run:
 
-```bash
-# Windows (PowerShell)
-irm https://deno.land/install.ps1 | iex
-
-# macOS/Linux
-curl -fsSL https://deno.land/install.sh | sh
+```sh
+mise install
+mise exec -- pnpm install --frozen-lockfile
+mise exec -- pnpm --filter bunja build
 ```
+
+Node.js 26.13.0 and pnpm 12.16.1 are pinned in `mise.toml`. Run the commands
+below from this example directory inside `mise exec -- ...` if mise is not
+activated in your shell. Rebuild Bunja after editing library code, or run its
+build with `--watch` in another terminal.
 
 ### 2. Install Dependencies
 
 ```bash
-deno install
+pnpm install --frozen-lockfile
 ```
 
 ### 3. Start Development Server
 
 ```bash
-deno task dev
+pnpm dev
 ```
 
 Visit `http://localhost:5173` in your browser.
@@ -75,7 +78,7 @@ Visit `http://localhost:5173` in your browser.
 ### Production Build
 
 ```bash
-deno task build
+pnpm build
 ```
 
 Built files will be generated in the `dist/` directory.
@@ -85,7 +88,7 @@ Built files will be generated in the `dist/` directory.
 Preview the built application locally:
 
 ```bash
-deno task preview
+pnpm preview
 ```
 
 ## 🧠 Architecture Overview
@@ -176,11 +179,11 @@ This example teaches:
 - **Derived memos** for computed values
 - **TypeScript** for type-safe development
 - **Modern CSS** techniques and animations
-- **Deno 2 + Vite** development workflow
+- **Node.js + pnpm + Vite** development workflow
 
 ## 🔗 Learn More
 
 - [Bunja Documentation](../../bunja/README.md)
 - [Solid Documentation](https://docs.solidjs.com/)
-- [Deno Documentation](https://deno.land/)
+- [mise Documentation](https://mise.jdx.dev/)
 - [Vite Documentation](https://vitejs.dev/)

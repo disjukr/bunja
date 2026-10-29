@@ -1,6 +1,0 @@
-{
-  "imports": {
-    "bunja": "../../bunja/bunja.ts",
-    "bunja/react": "../../bunja/react.ts"
-  }
-}

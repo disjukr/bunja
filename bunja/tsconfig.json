@@ -6,8 +6,14 @@
     "moduleResolution": "Bundler",
     "allowImportingTsExtensions": true,
     "declaration": true,
-    "emitDeclarationOnly": true,
     "skipLibCheck": true,
-    "outDir": "dist"
-  }
+    "outDir": "dist",
+    "noEmit": true
+  },
+  "include": [
+    "*.ts"
+  ],
+  "exclude": [
+    "dist"
+  ]
 }

@@ -2,23 +2,23 @@ name: Test
 
 on:
   pull_request:
-    branches: ["*"]
   push:
-    branches: [main]
+    branches: [main, v4]
+
+permissions:
+  contents: read
 
 jobs:
   test:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Deno
-        uses: denoland/setup-deno@v2
-        with:
-          deno-version: v2.7.13
-
-      - name: Run tests
-        run: deno test --conditions=browser --allow-env
-        working-directory: ./bunja
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v3
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - name: Check supported Node runtimes with packed consumer
+        run: |
+          for VERSION in 22.18.0 24.22.2; do
+            mise install "node@$VERSION"
+            BUNJA_COMPAT_NODE="$(mise where "node@$VERSION")/bin/node" pnpm check:package
+          done

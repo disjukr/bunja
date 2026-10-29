@@ -1,5 +1,4 @@
 // @ts-ignore dev
-// deno-lint-ignore no-process-global
 const __DEV__ = process.env.NODE_ENV !== "production";
 
 export interface BunjaFn {

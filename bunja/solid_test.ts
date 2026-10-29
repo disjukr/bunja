@@ -1,8 +1,9 @@
+import { test } from "node:test";
 import {
-  assertEquals,
-  assertNotStrictEquals,
-  assertStrictEquals,
-} from "@std/assert";
+  deepStrictEqual as assertEquals,
+  notStrictEqual as assertNotStrictEquals,
+  strictEqual as assertStrictEquals,
+} from "node:assert";
 import {
   createComponent,
   createContext,
@@ -23,7 +24,7 @@ for (
   const mode of ["context accessor", "bindScope accessor", "explicit binding"]
 ) {
   const explicit = mode === "explicit binding";
-  Deno.test(`Solid ${mode} lifecycle`, async () => {
+  test(`Solid ${mode} lifecycle`, async () => {
     const Context = createContext<string | (() => string)>(() => "default");
     const Scope = mode === "bindScope accessor"
       ? createScope<string>()
@@ -111,7 +112,7 @@ for (
   });
 }
 
-Deno.test("Solid bindScope, explicit precedence and mixed context fallback", async () => {
+test("Solid bindScope, explicit precedence and mixed context fallback", async () => {
   const Context = createContext<string | null | (() => string | null)>(null);
   const Scope = createScope<string | null>();
   bindScope(Scope, Context);

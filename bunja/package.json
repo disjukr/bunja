@@ -3,57 +3,27 @@
   "type": "module",
   "version": "2.0.0",
   "description": "State Lifetime Manager",
-  "main": "dist/bunja.cjs",
-  "module": "dist/bunja.js",
+  "main": "./dist/bunja.js",
   "types": "dist/bunja.d.ts",
   "exports": {
     ".": {
-      "import": {
-        "types": "./dist/bunja.d.ts",
-        "default": "./dist/bunja.js"
-      },
-      "require": {
-        "types": "./dist/bunja.d.cts",
-        "default": "./dist/bunja.cjs"
-      }
+      "types": "./dist/bunja.d.ts",
+      "default": "./dist/bunja.js"
     },
     "./react": {
-      "import": {
-        "types": "./dist/react.d.ts",
-        "default": "./dist/react.js"
-      },
-      "require": {
-        "types": "./dist/react.d.cts",
-        "default": "./dist/react.cjs"
-      }
+      "types": "./dist/react.d.ts",
+      "default": "./dist/react.js"
     },
     "./solid": {
-      "import": {
-        "types": "./dist/solid.d.ts",
-        "default": "./dist/solid.js"
-      },
-      "require": {
-        "types": "./dist/solid.d.cts",
-        "default": "./dist/solid.cjs"
-      }
-    }
-  },
-  "typesVersions": {
-    "*": {
-      "react": [
-        "./dist/react.d.ts"
-      ],
-      "solid": [
-        "./dist/solid.d.ts"
-      ],
-      "*": [
-        "./dist/bunja.d.ts"
-      ]
+      "types": "./dist/solid.d.ts",
+      "default": "./dist/solid.js"
     }
   },
   "scripts": {
     "clean": "rm -rf ./dist",
-    "build": "tsdown --format cjs && tsdown --format esm --no-clean"
+    "build": "tsdown",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --conditions=browser --test test.ts solid_test.ts"
   },
   "keywords": [
     "bunja",
@@ -70,8 +40,9 @@
     "@types/react": "^19",
     "react": "^19",
     "solid-js": "^1.9.7",
-    "tsdown": "^0.12.7",
-    "typescript": "^5.6.3"
+    "tsdown": "0.23.3",
+    "typescript": "^5.6.3",
+    "tsx": "^4.20.0"
   },
   "peerDependencies": {
     "@types/react": "*",
@@ -88,5 +59,13 @@
     "solid-js": {
       "optional": true
     }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22.18.0"
   }
 }
