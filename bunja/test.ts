@@ -1,4 +1,4 @@
-import { deepStrictEqual as assertEquals, throws as assertThrows } from "node:assert";
+import { deepStrictEqual, throws } from "node:assert";
 import { mock, test } from "node:test";
 
 import { bunja, createBunjaStore, createScope } from "./bunja.ts";
@@ -13,7 +13,7 @@ test("basic", () => {
   const { value, mount } = store.get(myBunja, readNull);
   const cleanup = mount();
   cleanup();
-  assertEquals(value, myBunjaInstance);
+  deepStrictEqual(value, myBunjaInstance);
 });
 
 test("basic effect", () => {
@@ -26,14 +26,14 @@ test("basic effect", () => {
       return unmountSpy;
     });
   });
-  assertEquals(mountSpy.mock.callCount(), 0);
+  deepStrictEqual(mountSpy.mock.callCount(), 0);
   const { mount } = store.get(myBunja, readNull);
-  assertEquals(mountSpy.mock.callCount(), 0);
+  deepStrictEqual(mountSpy.mock.callCount(), 0);
   const cleanup = mount();
-  assertEquals(mountSpy.mock.callCount(), 1);
-  assertEquals(unmountSpy.mock.callCount(), 0);
+  deepStrictEqual(mountSpy.mock.callCount(), 1);
+  deepStrictEqual(unmountSpy.mock.callCount(), 0);
   cleanup();
-  assertEquals(unmountSpy.mock.callCount(), 1);
+  deepStrictEqual(unmountSpy.mock.callCount(), 1);
 });
 
 test("bunja that depend on other bunja", () => {
@@ -56,20 +56,20 @@ test("bunja that depend on other bunja", () => {
     });
     return { a };
   });
-  assertEquals(aMountSpy.mock.callCount(), 0);
-  assertEquals(bMountSpy.mock.callCount(), 0);
+  deepStrictEqual(aMountSpy.mock.callCount(), 0);
+  deepStrictEqual(bMountSpy.mock.callCount(), 0);
   const { value, mount } = store.get(bBunja, readNull);
-  assertEquals(value.a, aBunjaInstance);
-  assertEquals(aMountSpy.mock.callCount(), 0);
-  assertEquals(bMountSpy.mock.callCount(), 0);
+  deepStrictEqual(value.a, aBunjaInstance);
+  deepStrictEqual(aMountSpy.mock.callCount(), 0);
+  deepStrictEqual(bMountSpy.mock.callCount(), 0);
   const cleanup = mount();
-  assertEquals(aMountSpy.mock.callCount(), 1);
-  assertEquals(bMountSpy.mock.callCount(), 1);
-  assertEquals(aUnmountSpy.mock.callCount(), 0);
-  assertEquals(bUnmountSpy.mock.callCount(), 0);
+  deepStrictEqual(aMountSpy.mock.callCount(), 1);
+  deepStrictEqual(bMountSpy.mock.callCount(), 1);
+  deepStrictEqual(aUnmountSpy.mock.callCount(), 0);
+  deepStrictEqual(bUnmountSpy.mock.callCount(), 0);
   cleanup();
-  assertEquals(aUnmountSpy.mock.callCount(), 1);
-  assertEquals(bUnmountSpy.mock.callCount(), 1);
+  deepStrictEqual(aUnmountSpy.mock.callCount(), 1);
+  deepStrictEqual(bUnmountSpy.mock.callCount(), 1);
 });
 
 test("dependency effects mount and cleanup before consumer effects", () => {
@@ -91,10 +91,10 @@ test("dependency effects mount and cleanup before consumer effects", () => {
 
   const { mount } = store.get(consumerBunja, readNull);
   const cleanup = mount();
-  assertEquals(order, ["dependency mount", "consumer mount"]);
+  deepStrictEqual(order, ["dependency mount", "consumer mount"]);
 
   cleanup();
-  assertEquals(order, [
+  deepStrictEqual(order, [
     "dependency mount",
     "consumer mount",
     "dependency cleanup",
@@ -121,20 +121,20 @@ test("A mount first, B mount later & A unmount first, B unmount later", () => {
   });
   const { mount: m1 } = store.get(aBunja, readNull);
   const c1 = m1();
-  assertEquals(aMountSpy.mock.callCount(), 1);
-  assertEquals(bMountSpy.mock.callCount(), 0);
+  deepStrictEqual(aMountSpy.mock.callCount(), 1);
+  deepStrictEqual(bMountSpy.mock.callCount(), 0);
   const { mount: m2 } = store.get(bBunja, readNull);
   const c2 = m2();
-  assertEquals(aMountSpy.mock.callCount(), 1);
-  assertEquals(bMountSpy.mock.callCount(), 1);
-  assertEquals(aUnmountSpy.mock.callCount(), 0);
-  assertEquals(bUnmountSpy.mock.callCount(), 0);
+  deepStrictEqual(aMountSpy.mock.callCount(), 1);
+  deepStrictEqual(bMountSpy.mock.callCount(), 1);
+  deepStrictEqual(aUnmountSpy.mock.callCount(), 0);
+  deepStrictEqual(bUnmountSpy.mock.callCount(), 0);
   c1();
-  assertEquals(aUnmountSpy.mock.callCount(), 0);
-  assertEquals(bUnmountSpy.mock.callCount(), 0);
+  deepStrictEqual(aUnmountSpy.mock.callCount(), 0);
+  deepStrictEqual(bUnmountSpy.mock.callCount(), 0);
   c2();
-  assertEquals(aUnmountSpy.mock.callCount(), 1);
-  assertEquals(bUnmountSpy.mock.callCount(), 1);
+  deepStrictEqual(aUnmountSpy.mock.callCount(), 1);
+  deepStrictEqual(bUnmountSpy.mock.callCount(), 1);
 });
 
 test("B mount first, A mount later & B unmount first, A unmount later", () => {
@@ -156,20 +156,20 @@ test("B mount first, A mount later & B unmount first, A unmount later", () => {
   });
   const { mount: m1 } = store.get(bBunja, readNull);
   const c1 = m1();
-  assertEquals(aMountSpy.mock.callCount(), 1);
-  assertEquals(bMountSpy.mock.callCount(), 1);
+  deepStrictEqual(aMountSpy.mock.callCount(), 1);
+  deepStrictEqual(bMountSpy.mock.callCount(), 1);
   const { mount: m2 } = store.get(aBunja, readNull);
   const c2 = m2();
-  assertEquals(aMountSpy.mock.callCount(), 1);
-  assertEquals(bMountSpy.mock.callCount(), 1);
-  assertEquals(aUnmountSpy.mock.callCount(), 0);
-  assertEquals(bUnmountSpy.mock.callCount(), 0);
+  deepStrictEqual(aMountSpy.mock.callCount(), 1);
+  deepStrictEqual(bMountSpy.mock.callCount(), 1);
+  deepStrictEqual(aUnmountSpy.mock.callCount(), 0);
+  deepStrictEqual(bUnmountSpy.mock.callCount(), 0);
   c1();
-  assertEquals(aUnmountSpy.mock.callCount(), 0);
-  assertEquals(bUnmountSpy.mock.callCount(), 1);
+  deepStrictEqual(aUnmountSpy.mock.callCount(), 0);
+  deepStrictEqual(bUnmountSpy.mock.callCount(), 1);
   c2();
-  assertEquals(aUnmountSpy.mock.callCount(), 1);
-  assertEquals(bUnmountSpy.mock.callCount(), 1);
+  deepStrictEqual(aUnmountSpy.mock.callCount(), 1);
+  deepStrictEqual(bUnmountSpy.mock.callCount(), 1);
 });
 
 test("injecting values into a scope when calling store.get", () => {
@@ -183,7 +183,7 @@ test("injecting values into a scope when calling store.get", () => {
   const { value: { scopeValue }, mount } = store.get(myBunja, readScope);
   const cleanup = mount();
   cleanup();
-  assertEquals(scopeValue, "injected value");
+  deepStrictEqual(scopeValue, "injected value");
 });
 
 test("scope value deduplication using hash function", () => {
@@ -208,9 +208,9 @@ test("scope value deduplication using hash function", () => {
     <T>() => "baaz" as T,
   );
   const cleanup3 = mount3();
-  assertEquals(scopeValue1, "foo");
-  assertEquals(scopeValue2, "foo");
-  assertEquals(scopeValue3, "baaz");
+  deepStrictEqual(scopeValue1, "foo");
+  deepStrictEqual(scopeValue2, "foo");
+  deepStrictEqual(scopeValue3, "baaz");
   cleanup1();
   cleanup2();
   cleanup3();
@@ -233,10 +233,10 @@ test("root scope value pairs are included in store.get deps", () => {
     readNull,
   );
 
-  assertEquals(first.value.scopeValue, "foo");
-  assertEquals(second.value.scopeValue, "bar");
-  assertEquals(first.deps, ["foo"]);
-  assertEquals(second.deps, ["bar"]);
+  deepStrictEqual(first.value.scopeValue, "foo");
+  deepStrictEqual(second.value.scopeValue, "bar");
+  deepStrictEqual(first.deps, ["foo"]);
+  deepStrictEqual(second.deps, ["bar"]);
 });
 
 test("bunja.use can override scope value pairs inside a bunja init", () => {
@@ -263,42 +263,42 @@ test("bunja.use can override scope value pairs inside a bunja init", () => {
     bunja.effect(() => (cMountSpy(), cUnmountSpy));
     return { foo, bar };
   });
-  assertEquals(aMountSpy.mock.callCount(), 0);
-  assertEquals(bMountSpy.mock.callCount(), 0);
-  assertEquals(cMountSpy.mock.callCount(), 0);
+  deepStrictEqual(aMountSpy.mock.callCount(), 0);
+  deepStrictEqual(bMountSpy.mock.callCount(), 0);
+  deepStrictEqual(cMountSpy.mock.callCount(), 0);
   const { value, mount: m1, deps: d1 } = store.get(
     cBunja,
     <T>() => "abc" as T,
   );
-  assertEquals(aMountSpy.mock.callCount(), 0);
-  assertEquals(bMountSpy.mock.callCount(), 0);
-  assertEquals(cMountSpy.mock.callCount(), 0);
+  deepStrictEqual(aMountSpy.mock.callCount(), 0);
+  deepStrictEqual(bMountSpy.mock.callCount(), 0);
+  deepStrictEqual(cMountSpy.mock.callCount(), 0);
   const c1 = m1();
-  assertEquals(d1, ["abc"]);
-  assertEquals(value.foo.a, value.bar.a);
-  assertEquals(value.foo.scopeValue, "foo");
-  assertEquals(value.bar.scopeValue, "bar");
-  assertEquals(aMountSpy.mock.callCount(), 1);
-  assertEquals(bMountSpy.mock.callCount(), 2);
-  assertEquals(cMountSpy.mock.callCount(), 1);
-  assertEquals(aUnmountSpy.mock.callCount(), 0);
-  assertEquals(bUnmountSpy.mock.callCount(), 0);
-  assertEquals(cUnmountSpy.mock.callCount(), 0);
+  deepStrictEqual(d1, ["abc"]);
+  deepStrictEqual(value.foo.a, value.bar.a);
+  deepStrictEqual(value.foo.scopeValue, "foo");
+  deepStrictEqual(value.bar.scopeValue, "bar");
+  deepStrictEqual(aMountSpy.mock.callCount(), 1);
+  deepStrictEqual(bMountSpy.mock.callCount(), 2);
+  deepStrictEqual(cMountSpy.mock.callCount(), 1);
+  deepStrictEqual(aUnmountSpy.mock.callCount(), 0);
+  deepStrictEqual(bUnmountSpy.mock.callCount(), 0);
+  deepStrictEqual(cUnmountSpy.mock.callCount(), 0);
   const { mount: m2, deps: d2 } = store.get(
     bBunja,
     <T>(scope: any) => ((scope === aaScope) ? "foo" : "abc") as T,
   );
   const c2 = m2();
-  assertEquals(d2, ["foo", "abc"]);
-  assertEquals(bMountSpy.mock.callCount(), 2);
+  deepStrictEqual(d2, ["foo", "abc"]);
+  deepStrictEqual(bMountSpy.mock.callCount(), 2);
   c1();
-  assertEquals(aUnmountSpy.mock.callCount(), 0);
-  assertEquals(bUnmountSpy.mock.callCount(), 1);
-  assertEquals(cUnmountSpy.mock.callCount(), 1);
+  deepStrictEqual(aUnmountSpy.mock.callCount(), 0);
+  deepStrictEqual(bUnmountSpy.mock.callCount(), 1);
+  deepStrictEqual(cUnmountSpy.mock.callCount(), 1);
   c2();
-  assertEquals(aUnmountSpy.mock.callCount(), 1);
-  assertEquals(bUnmountSpy.mock.callCount(), 2);
-  assertEquals(cUnmountSpy.mock.callCount(), 1);
+  deepStrictEqual(aUnmountSpy.mock.callCount(), 1);
+  deepStrictEqual(bUnmountSpy.mock.callCount(), 2);
+  deepStrictEqual(cUnmountSpy.mock.callCount(), 1);
 });
 
 test("bunja.use with scope value pairs propagates unbound required scopes", () => {
@@ -322,9 +322,9 @@ test("bunja.use with scope value pairs propagates unbound required scopes", () =
     prebakeGraph.consumerBunja,
     readScope,
   );
-  assertEquals(requiredScopes.length, 1);
-  assertEquals(requiredScopes[0] === prebakeGraph.outerScope, true);
-  assertEquals(
+  deepStrictEqual(requiredScopes.length, 1);
+  deepStrictEqual(requiredScopes[0] === prebakeGraph.outerScope, true);
+  deepStrictEqual(
     requiredScopes.some((scope) => scope === prebakeGraph.injectedScope),
     false,
   );
@@ -335,14 +335,14 @@ test("bunja.use with scope value pairs propagates unbound required scopes", () =
     readScope,
   );
   const requiredScopes2 = getGraph.consumerBunja.requiredScopes;
-  assertEquals(value, { injected: "injected", outer: "outer" });
-  assertEquals(deps, ["outer"]);
-  assertEquals(requiredScopes2.length, 1);
-  assertEquals(
+  deepStrictEqual(value, { injected: "injected", outer: "outer" });
+  deepStrictEqual(deps, ["outer"]);
+  deepStrictEqual(requiredScopes2.length, 1);
+  deepStrictEqual(
     requiredScopes2[0] === getGraph.outerScope,
     true,
   );
-  assertEquals(
+  deepStrictEqual(
     requiredScopes2.some((scope) => scope === getGraph.injectedScope),
     false,
   );
@@ -364,8 +364,8 @@ test("seed is used only when creating a bunja instance", () => {
   );
   const secondCleanup = secondMount();
 
-  assertEquals(firstValue.seed.value, "first");
-  assertEquals(secondValue, firstValue);
+  deepStrictEqual(firstValue.seed.value, "first");
+  deepStrictEqual(secondValue, firstValue);
 
   firstCleanup();
   secondCleanup();
@@ -376,7 +376,7 @@ test("seed is used only when creating a bunja instance", () => {
   );
   const thirdCleanup = thirdMount();
 
-  assertEquals(thirdValue.seed.value, "third");
+  deepStrictEqual(thirdValue.seed.value, "third");
   thirdCleanup();
 });
 
@@ -397,9 +397,9 @@ test("bunja.use can provide seed without storing it in graph refs", () => {
   const { value, mount } = store.get(consumerBunja, readNull);
   const cleanup = mount();
 
-  assertEquals(value, "dependency");
-  assertEquals(consumerBunja.requiredBunjaRefs.length, 1);
-  assertEquals("seed" in consumerBunja.requiredBunjaRefs[0], false);
+  deepStrictEqual(value, "dependency");
+  deepStrictEqual(consumerBunja.requiredBunjaRefs.length, 1);
+  deepStrictEqual("seed" in consumerBunja.requiredBunjaRefs[0], false);
 
   cleanup();
 });
@@ -420,9 +420,9 @@ test("prebake rejects root seed and initializes with default seed", () => {
   store.prebake(myBunja, readNull);
   store.prebake(consumerBunja, readNull);
 
-  assertEquals(usedSeeds, ["default", "default"]);
-  assertEquals("seed" in consumerBunja.requiredBunjaRefs[0], false);
-  assertThrows(
+  deepStrictEqual(usedSeeds, ["default", "default"]);
+  deepStrictEqual("seed" in consumerBunja.requiredBunjaRefs[0], false);
+  throws(
     () => {
       // @ts-expect-error Prebake collects deterministic graph data only.
       store.prebake(myRef, readNull);
@@ -455,16 +455,16 @@ test("bunja.will mounts only the selected dependency", () => {
     consumerBunja,
     <T>() => "a" as T,
   );
-  assertEquals(value, "a");
-  assertEquals(consumerBunja.relatedBunjas, [aBunja, bBunja]);
+  deepStrictEqual(value, "a");
+  deepStrictEqual(consumerBunja.relatedBunjas, [aBunja, bBunja]);
 
   const cleanup = mount();
-  assertEquals(aMountSpy.mock.callCount(), 1);
-  assertEquals(bMountSpy.mock.callCount(), 0);
+  deepStrictEqual(aMountSpy.mock.callCount(), 1);
+  deepStrictEqual(bMountSpy.mock.callCount(), 0);
 
   cleanup();
-  assertEquals(aUnmountSpy.mock.callCount(), 1);
-  assertEquals(bUnmountSpy.mock.callCount(), 0);
+  deepStrictEqual(aUnmountSpy.mock.callCount(), 1);
+  deepStrictEqual(bUnmountSpy.mock.callCount(), 0);
 });
 
 test("active bunja.will dependency effects cleanup before consumer effects", () => {
@@ -487,10 +487,10 @@ test("active bunja.will dependency effects cleanup before consumer effects", () 
 
   const { mount } = store.get(consumerBunja, readNull);
   const cleanup = mount();
-  assertEquals(order, ["dependency mount", "consumer mount"]);
+  deepStrictEqual(order, ["dependency mount", "consumer mount"]);
 
   cleanup();
-  assertEquals(order, [
+  deepStrictEqual(order, [
     "dependency mount",
     "consumer mount",
     "dependency cleanup",
@@ -514,8 +514,8 @@ test("bunja.will records optional refs once when thunk is used", () => {
   const prebakeGraph = createConsumer();
   createBunjaStore().prebake(prebakeGraph.consumerBunja, readNull);
 
-  assertEquals(getGraph.consumerBunja.optionalBunjaRefs.length, 1);
-  assertEquals(prebakeGraph.consumerBunja.optionalBunjaRefs.length, 1);
+  deepStrictEqual(getGraph.consumerBunja.optionalBunjaRefs.length, 1);
+  deepStrictEqual(prebakeGraph.consumerBunja.optionalBunjaRefs.length, 1);
 });
 
 test("relatedBunjas includes nested bunja.will dependencies", () => {
@@ -533,7 +533,7 @@ test("relatedBunjas includes nested bunja.will dependencies", () => {
   const { mount } = store.get(consumerBunja, readNull);
   const cleanup = mount();
 
-  assertEquals(consumerBunja.relatedBunjas, [
+  deepStrictEqual(consumerBunja.relatedBunjas, [
     grandparentDependencyBunja,
     parentDependencyBunja,
   ]);
@@ -562,21 +562,21 @@ test("prebake expands inactive bunja.will dependency graph", () => {
   const { value, mount } = store.get(consumerBunja, readNull);
   const cleanup = mount();
 
-  assertEquals(value, "consumer");
-  assertEquals(consumerBunja.relatedBunjas, [parentDependencyBunja]);
-  assertEquals(grandparentDependencyMountSpy.mock.callCount(), 0);
+  deepStrictEqual(value, "consumer");
+  deepStrictEqual(consumerBunja.relatedBunjas, [parentDependencyBunja]);
+  deepStrictEqual(grandparentDependencyMountSpy.mock.callCount(), 0);
 
   const prebaked = store.prebake(consumerBunja, readNull);
 
-  assertEquals(prebaked.relatedBunjas, [
+  deepStrictEqual(prebaked.relatedBunjas, [
     grandparentDependencyBunja,
     parentDependencyBunja,
   ]);
-  assertEquals(consumerBunja.relatedBunjas, [
+  deepStrictEqual(consumerBunja.relatedBunjas, [
     grandparentDependencyBunja,
     parentDependencyBunja,
   ]);
-  assertEquals(grandparentDependencyMountSpy.mock.callCount(), 0);
+  deepStrictEqual(grandparentDependencyMountSpy.mock.callCount(), 0);
 
   cleanup();
 });
@@ -601,13 +601,13 @@ test("prebake runs each dependency once per traversal", () => {
 
   store.prebake(consumerBunja, readNull);
 
-  assertEquals(requiredInitSpy.mock.callCount(), 1);
-  assertEquals(optionalInitSpy.mock.callCount(), 1);
+  deepStrictEqual(requiredInitSpy.mock.callCount(), 1);
+  deepStrictEqual(optionalInitSpy.mock.callCount(), 1);
 
   store.prebake(consumerBunja, readNull);
 
-  assertEquals(requiredInitSpy.mock.callCount(), 2);
-  assertEquals(optionalInitSpy.mock.callCount(), 2);
+  deepStrictEqual(requiredInitSpy.mock.callCount(), 2);
+  deepStrictEqual(optionalInitSpy.mock.callCount(), 2);
 });
 
 test("prebake disposes the dry-run wrapper", () => {
@@ -623,8 +623,8 @@ test("prebake disposes the dry-run wrapper", () => {
 
   store.prebake(myBunja, readNull);
 
-  assertEquals(wrapCalls, 1);
-  assertEquals(disposeSpy.mock.callCount(), 1);
+  deepStrictEqual(wrapCalls, 1);
+  deepStrictEqual(disposeSpy.mock.callCount(), 1);
 });
 
 test("bunja.will thunk can only be called during the same bunja init", () => {
@@ -639,7 +639,7 @@ test("bunja.will thunk can only be called during the same bunja init", () => {
   const { mount } = store.get(consumerBunja, readNull);
   const cleanup = mount();
 
-  assertThrows(
+  throws(
     () => getParent(),
     (error: unknown) => error instanceof Error && error.message.includes("same bunja init function"),
   );
@@ -656,11 +656,11 @@ test("store.get rejects circular bunja dependencies", () => {
   const aBunja = bunja(() => bunja.use(bBunja));
   bBunja = bunja(() => bunja.use(aBunja));
 
-  assertThrows(
+  throws(
     () => store.get(aBunja, readNull),
     (error: unknown) => error instanceof Error && error.message.includes("Circular bunja dependency detected."),
   );
-  assertEquals(disposeSpy.mock.callCount(), 2);
+  deepStrictEqual(disposeSpy.mock.callCount(), 2);
 });
 
 test("prebake rejects circular bunja dependencies", () => {
@@ -669,7 +669,7 @@ test("prebake rejects circular bunja dependencies", () => {
   const aBunja = bunja(() => bunja.use(bBunja));
   bBunja = bunja(() => bunja.use(aBunja));
 
-  assertThrows(
+  throws(
     () => store.prebake(aBunja, readNull),
     (error: unknown) => error instanceof Error && error.message.includes("Circular bunja dependency detected."),
   );
@@ -702,19 +702,19 @@ test("active optional dependency scopes are part of bunja instance identity", ()
   const second = store.get(consumerBunja, readScope("b"));
   const secondCleanup = second.mount();
 
-  assertEquals(consumerBunja.requiredScopes.length, 1);
-  assertEquals(consumerBunja.requiredScopes[0] === condScope, true);
-  assertEquals(first.value.parent?.resource, "a");
-  assertEquals(second.value.parent?.resource, "b");
-  assertEquals(first.value === second.value, false);
-  assertEquals(first.deps, [true, "a"]);
-  assertEquals(second.deps, [true, "b"]);
-  assertEquals(mounted, ["a", "b"]);
+  deepStrictEqual(consumerBunja.requiredScopes.length, 1);
+  deepStrictEqual(consumerBunja.requiredScopes[0] === condScope, true);
+  deepStrictEqual(first.value.parent?.resource, "a");
+  deepStrictEqual(second.value.parent?.resource, "b");
+  deepStrictEqual(first.value === second.value, false);
+  deepStrictEqual(first.deps, [true, "a"]);
+  deepStrictEqual(second.deps, [true, "b"]);
+  deepStrictEqual(mounted, ["a", "b"]);
 
   firstCleanup();
-  assertEquals(unmounted, ["a"]);
+  deepStrictEqual(unmounted, ["a"]);
   secondCleanup();
-  assertEquals(unmounted, ["a", "b"]);
+  deepStrictEqual(unmounted, ["a", "b"]);
 });
 
 test("inactive optional dependency scopes do not change bunja instance identity", () => {
@@ -742,12 +742,12 @@ test("inactive optional dependency scopes do not change bunja instance identity"
   const firstCleanup = first.mount();
   const secondCleanup = second.mount();
 
-  assertEquals(consumerBunja.requiredScopes.length, 1);
-  assertEquals(consumerBunja.requiredScopes[0] === condScope, true);
-  assertEquals(first.value, second.value);
-  assertEquals(first.deps, [false]);
-  assertEquals(second.deps, [false]);
-  assertEquals(parentDependencyMountSpy.mock.callCount(), 0);
+  deepStrictEqual(consumerBunja.requiredScopes.length, 1);
+  deepStrictEqual(consumerBunja.requiredScopes[0] === condScope, true);
+  deepStrictEqual(first.value, second.value);
+  deepStrictEqual(first.deps, [false]);
+  deepStrictEqual(second.deps, [false]);
+  deepStrictEqual(parentDependencyMountSpy.mock.callCount(), 0);
 
   firstCleanup();
   secondCleanup();
@@ -774,9 +774,9 @@ test("duplicate optional dependency calls are mounted once", () => {
   const { value, mount } = store.get(consumerBunja, readNull);
   const cleanup = mount();
 
-  assertEquals(value.first, parentDependencyValue);
-  assertEquals(value.second, parentDependencyValue);
-  assertEquals(mountSpy.mock.callCount(), 1);
+  deepStrictEqual(value.first, parentDependencyValue);
+  deepStrictEqual(value.second, parentDependencyValue);
+  deepStrictEqual(mountSpy.mock.callCount(), 1);
 
   cleanup();
 });
