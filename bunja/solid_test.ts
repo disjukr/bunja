@@ -165,3 +165,45 @@ test("Solid bindScope, explicit precedence and mixed context fallback", async ()
     await settle();
   }
 });
+
+test("Solid providers independently discover a shared definition", async () => {
+  const scope = createScope<string>();
+  const events: string[] = [];
+  let initialized = 0;
+  const model = bunja(() => {
+    initialized++;
+    const value = bunja.use(scope);
+    bunja.effect(() => {
+      events.push(`start:${value}`);
+      return () => { events.push(`stop:${value}`); };
+    });
+    return { value };
+  });
+  const roots: (() => void)[] = [];
+  const values: (() => { value: string })[] = [];
+  for (const value of ["a", "b"]) {
+    createRoot(dispose => {
+      roots.push(dispose);
+      createComponent(BunjaStoreProvider, {
+        get children() {
+          values.push(useBunja(model, [scope.bind(value)]));
+          return null;
+        },
+      });
+    });
+  }
+  try {
+    await settle();
+    deepStrictEqual(initialized, 2);
+    deepStrictEqual(values.map(read => read().value), ["a", "b"]);
+    notStrictEqual(values[0](), values[1]());
+    roots[0]();
+    await settle();
+    deepStrictEqual(events, ["start:a", "start:b", "stop:a"]);
+    deepStrictEqual(values[1]().value, "b");
+  } finally {
+    roots.forEach(dispose => dispose());
+    await settle();
+  }
+  deepStrictEqual(events, ["start:a", "start:b", "stop:a", "stop:b"]);
+});

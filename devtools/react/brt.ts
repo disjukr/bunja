@@ -1,4 +1,4 @@
-import type { Bunja, BunjaEffectCallback, ScopeValuePair } from "bunja";
+import type { Bunja, ScopeValuePair } from "bunja";
 import type { Context, PropsWithChildren } from "react";
 
 import type { Fiber } from "./fiber/provider.tsx";
@@ -9,9 +9,9 @@ export type BrtNode = BrtComponent | BrtContext;
 export interface BunjaInstance {
   id: string;
   value: unknown;
-  effect: BunjaEffectCallback;
 }
 export interface BunjaHookValue {
+  storeId?: string;
   bunja: Bunja<unknown>;
   scopeValuePairs: ScopeValuePair<unknown>[];
   bunjaInstance: BunjaInstance;

@@ -406,3 +406,39 @@ const myBunja = bunja(() => {
   return { fooData, barData };
 });
 ```
+
+### v4: store-owned graphs and observation
+
+Graph metadata belongs to each store. Replace definition properties such as
+`model.baked`, `model.requiredScopes`, and `model.relatedBunjas` with
+`store.inspect(model).baked`, `.requiredScopes`, and `.relatedBunjas`.
+The snapshot also includes direct `scopes`, `requiredBunjaRefs`,
+`optionalBunjaRefs`, and `expandedRequiredBunjas`. Direct dependency definitions
+can be obtained from the refs' `bunja` fields. Definition graph mutation methods
+are now internal; use explicit `store.prebake(model, readScope)` for analysis.
+Its `{ relatedBunjas, requiredScopes }` result shape is unchanged.
+
+`store.inspect(model)` and `store.snapshot()` never initialize or prebake.
+An unknown definition has `baked: false` and empty metadata. Snapshots contain
+frozen copies of graph collections and instance IDs, including each instance's
+`activeDependencyIds`; declared optional edges need not be active. Definitions,
+scopes, and bound user values inside graph refs preserve their identity and are
+not recursively frozen. Inactive optional dependencies remain unanalyzed until
+used or explicitly prebaked. Static scope/dependency declarations are fixed by
+the first successful analysis **in that store**.
+
+`dispose()` clears instances and graph metadata. Reusing the store retains its ID
+and analyzes afresh. Failed discovery discards that definition's partial metadata;
+successfully analyzed children remain cached. Previously baked metadata survives
+a failed subsequent initialization. Each store pays its own initial analysis and
+stores its own refs, scope sets, and transitive lists; nothing is cached globally.
+
+In development, the global hook's `snapshot()` supports late attachment, and
+`graphChanged` identifies changes by `{ storeId, bunjaId }`. Resnapshot the store
+to refresh transitive views after a dependency changes. Its `stores` map contains
+weak references; disposal removes registration, and reuse registers again.
+Snapshots contain no instance values and are not retained by the hook. Clients
+should release their own snapshots on `storeDisposed`. Existing event names and
+listeners remain compatible: `bunjaInstanceMounted` and `scopeInstanceMounted`
+announce **creation**, before `mount()` starts effects; unmount events announce
+disposal. This refactor does not change that lifetime event convention.
