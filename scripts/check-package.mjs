@@ -21,9 +21,11 @@ try {
   for (const name of ['react', 'solid-js', '@types/react']) dependencies[name] = coreRequire(`${name}/package.json`).version;
   for (const name of ['typescript', 'esbuild']) dependencies[name] = require(`${name}/package.json`).version;
   await writeFile(join(temp, 'package.json'), JSON.stringify({ private: true, type: 'module', dependencies }));
-  // Offline install proves all consumer dependencies come from the workspace lockfile.
+  // Pin direct consumer dependencies to the installed workspace versions.
+  // Frozen workspace installs need not cache registry metadata, so allow the
+  // independent consumer to fetch metadata while reusing available tarballs.
   const store = execFileSync('pnpm', ['store', 'path'], { cwd: root, encoding: 'utf8' }).trim();
-  run('pnpm', ['install', '--offline', '--ignore-scripts', '--ignore-workspace', '--store-dir', dirname(store)]);
+  run('pnpm', ['install', '--prefer-offline', '--no-frozen-lockfile', '--ignore-scripts', '--ignore-workspace', '--store-dir', dirname(store)]);
   const pkgDir = join(temp, 'node_modules/bunja');
   const pkg = JSON.parse(await readFile(join(pkgDir, 'package.json'), 'utf8'));
   assert.equal(pkg.type, 'module');

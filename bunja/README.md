@@ -443,8 +443,8 @@ package's built exports: run `pnpm --filter bunja build` before starting Vite; u
 `BUNJA_COMPAT_NODE=/absolute/path/to/node pnpm check:package` additionally verifies
 packed imports and `require(ESM)` on another Node runtime. The check installs a
 packed tarball into a temporary consumer, checks all adapter exports and declaration
-resolution, and bundles for browsers with esbuild. It uses the dependencies already
-cached by the workspace install.
+resolution, and bundles for browsers with esbuild. It pins direct dependencies to the installed workspace versions, reuses cached
+tarballs and may fetch registry metadata for the independent consumer.
 
 JSR distribution is retained; its release-only CLI details are documented in
 [PUBLISHING.md](https://github.com/disjukr/bunja/blob/v4/PUBLISHING.md). Normal development does not need Deno.
