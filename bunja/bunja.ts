@@ -370,8 +370,10 @@ export class BunjaStore {
     this.#scopes = new Map();
     this.#graphs.clear();
     storeFinalizer?.unregister(this);
-    if (__DEV__) devtoolsGlobalHook.stores.delete(this.id);
-    if (__DEV__) devtoolsGlobalHook.emit("storeDisposed", { storeId: this.id });
+    if (__DEV__) {
+      devtoolsGlobalHook.stores.delete(this.id);
+      devtoolsGlobalHook.emit("storeDisposed", { storeId: this.id });
+    }
   }
   get<T, Seed>(
     bunjaOrRef: Bunja<T, Seed> | BunjaGetRef<T, Seed>,
@@ -411,9 +413,10 @@ export class BunjaStore {
       readScope,
       createBunjaPrebakeContext(),
     );
+    const graph = this.#graph(bunjaRef.bunja);
     return {
-      relatedBunjas: this.#graph(bunjaRef.bunja).relatedBunjas,
-      requiredScopes: [...this.#graph(bunjaRef.bunja).requiredScopes],
+      relatedBunjas: graph.relatedBunjas,
+      requiredScopes: [...graph.requiredScopes],
     };
   }
   #resolveBunjaRef<T, Seed>(
@@ -433,7 +436,7 @@ export class BunjaStore {
     const wasBaked = this.#graph(bunja).baked;
     inProgressBunjas.add(bunja);
     try {
-      if (!this.#graph(bunja).baked) {
+      if (!wasBaked) {
         return this.#createResolvedBunja(
           bunjaRef,
           resolvedReadScope,
@@ -446,18 +449,19 @@ export class BunjaStore {
         bunja,
         resolvedReadScope,
       );
+      const graph = this.#graph(bunja);
       const boundScopes = getBoundScopeSet(bunjaRef.scopeValuePairs);
       const scopeInstances = getScopeInstances(
-        this.#graph(bunja).requiredScopes,
+        graph.requiredScopes,
         scopeInstanceMap,
       );
       const directDeps = getScopeInstances(
         includeBoundScopeDeps
-          ? this.#graph(bunja).requiredScopes
-          : this.#graph(bunja).requiredScopes.filter((scope) => !boundScopes.has(scope)),
+          ? graph.requiredScopes
+          : graph.requiredScopes.filter((scope) => !boundScopes.has(scope)),
         scopeInstanceMap,
       );
-      const baseId = this.#graph(bunja).calcBaseInstanceId(scopeInstanceMap);
+      const baseId = graph.calcBaseInstanceId(scopeInstanceMap);
       const bucket = this.#bunjaBuckets.get(baseId);
       if (bucket) {
         for (const candidateId of Array.from(bucket)) {
@@ -535,25 +539,28 @@ export class BunjaStore {
           inProgressBunjas,
         );
         const value = runWithFrame(frame, () => this.#initializer(bunja)(seed));
-        if (!this.#graph(bunja).baked) this.#graph(bunja).bake();
+        let graph = this.#graph(bunja);
+        if (!graph.baked) graph.bake();
         this.#ensureRequiredScopeInstances(
           bunja,
           frame.scopeInstanceMap,
           readScope,
         );
+        // Scope readers can reenter the store and replace its graph.
+        graph = this.#graph(bunja);
         const boundScopes = getBoundScopeSet(bunjaRef.scopeValuePairs);
         const scopeInstances = getScopeInstances(
-          this.#graph(bunja).requiredScopes,
+          graph.requiredScopes,
           frame.scopeInstanceMap,
         );
         const directDeps = getScopeInstances(
           includeBoundScopeDeps
-            ? this.#graph(bunja).requiredScopes
-            : this.#graph(bunja).requiredScopes.filter((scope) => !boundScopes.has(scope)),
+            ? graph.requiredScopes
+            : graph.requiredScopes.filter((scope) => !boundScopes.has(scope)),
           frame.scopeInstanceMap,
         );
-        const baseId = this.#graph(bunja).calcBaseInstanceId(frame.scopeInstanceMap);
-        const id = this.#graph(bunja).calcInstanceId(
+        const baseId = graph.calcBaseInstanceId(frame.scopeInstanceMap);
+        const id = graph.calcInstanceId(
           frame.scopeInstanceMap,
           frame.activeDependencyIds,
         );
@@ -666,10 +673,11 @@ export class BunjaStore {
     return frame;
   }
   #useScopeInFrame<T>(frame: BunjaInitFrame, scope: Scope<T>): T {
-    this.#graph(frame.currentBunja).addScope(scope as Scope<unknown>);
+    const graph = this.#graph(frame.currentBunja);
+    graph.addScope(scope as Scope<unknown>);
     let scopeInstance = frame.scopeInstanceMap.get(scope as Scope<unknown>);
     if (!scopeInstance) {
-      if (this.#graph(frame.currentBunja).baked) {
+      if (graph.baked) {
         throw new Error(
           "`bunja.use(scope)` cannot introduce a new scope after the bunja is baked.",
         );
@@ -756,11 +764,12 @@ export class BunjaStore {
             frame,
             () => this.#initializer(bunja)(bunja.defaultSeed),
           );
-          if (!this.#graph(bunja).baked) this.#graph(bunja).bake();
+          const graph = this.#graph(bunja);
+          if (!graph.baked) graph.bake();
           for (
             const ref of [
-              ...this.#graph(bunja).requiredBunjaRefs,
-              ...this.#graph(bunja).optionalBunjaRefs,
+              ...graph.requiredBunjaRefs,
+              ...graph.optionalBunjaRefs,
             ]
           ) this.#prebakeBunjaRef(ref, resolvedReadScope, prebakeContext);
           prebakeContext.values.set(bunja, value);
