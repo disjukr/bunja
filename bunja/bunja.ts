@@ -79,14 +79,24 @@ export function createScope<T>(hash?: HashFn<T>): Scope<T> {
   return new Scope(hash);
 }
 
+export interface BunjaOverride {
+  readonly target: Bunja<any, any>;
+  readonly init: (seed: any) => any;
+}
+
+export function override<T, Seed>(
+  target: Bunja<T, Seed>,
+  init: (seed: NoInfer<Seed>) => NoInfer<T>,
+): BunjaOverride {
+  return { target, init };
+}
+
 export interface CreateBunjaStoreConfig {
   wrapInstance?: WrapInstanceFn;
+  overrides?: readonly BunjaOverride[];
 }
 export function createBunjaStore(config?: CreateBunjaStoreConfig): BunjaStore {
-  const { wrapInstance = defaultWrapInstanceFn } = config ?? {};
-  const store = new BunjaStore();
-  store.wrapInstance = wrapInstance;
-  return store;
+  return new BunjaStore(config);
 }
 
 export type Dep<T> = Bunja<T, any> | Scope<T>;
@@ -292,6 +302,7 @@ export class BunjaStore {
   #bunjaBuckets: Map<string, Set<string>> = new Map();
   #scopes: Map<Scope<unknown>, Map<unknown, ScopeInstance>> = new Map();
   #graphs = new Map<AnyBunja, BunjaGraph>();
+  #overrides = new Map<AnyBunja, BunjaOverride["init"]>();
   #graph = (bunja: AnyBunja): BunjaGraph => {
     let graph = this.#graphs.get(bunja);
     if (!graph) {
@@ -301,7 +312,7 @@ export class BunjaStore {
     return graph;
   };
   #initializer<T, Seed>(bunja: Bunja<T, Seed>): (seed: Seed) => T {
-    return bunja.init;
+    return this.#overrides.get(bunja) ?? bunja.init;
   }
   inspect(bunja: AnyBunja): BunjaGraphSnapshot {
     const graph = this.#graphs.get(bunja);
@@ -344,8 +355,18 @@ export class BunjaStore {
     storeFinalizer?.register(this, this.id, this);
     devtoolsGlobalHook.emit("storeCreated", { storeId: this.id });
   }
-  wrapInstance: WrapInstanceFn = defaultWrapInstanceFn;
-  constructor() {
+  wrapInstance: WrapInstanceFn;
+  constructor({
+    wrapInstance = defaultWrapInstanceFn,
+    overrides = [],
+  }: CreateBunjaStoreConfig = {}) {
+    this.wrapInstance = wrapInstance;
+    for (const { target, init } of overrides) {
+      if (this.#overrides.has(target)) {
+        throw new Error("Duplicate bunja override target.");
+      }
+      this.#overrides.set(target, init);
+    }
     this.#register();
   }
   get _internalState(): InternalState | undefined {

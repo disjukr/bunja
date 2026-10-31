@@ -23,7 +23,7 @@
     "clean": "rm -rf ./dist",
     "build": "tsdown",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --conditions=browser --test test.ts solid_test.ts react_test.ts"
+    "test": "node --import tsx --conditions=browser --test test.ts solid_test.ts react_test.ts override_test.ts"
   },
   "keywords": [
     "bunja",
