@@ -98,15 +98,15 @@ export function useBunja<T, Seed>(
       );
     }
     const { value, mount, deps, bunjaInstance } = store.get(bunja, readScope);
-    useEffect(delayUnmount(mount), deps);
+    useEffect(delayUnmount(mount), [store, ...deps]);
     useMemo(
-      () => ({ bunja, scopeValuePairs, bunjaInstance }),
-      [bunja, scopeValuePairs, bunjaInstance],
+      () => ({ storeId: store.id, bunja, scopeValuePairs, bunjaInstance }),
+      [store, bunja, scopeValuePairs, bunjaInstance],
     );
     return value;
   } else {
     const { value, mount, deps } = store.get(bunja, readScope);
-    useEffect(delayUnmount(mount), deps);
+    useEffect(delayUnmount(mount), [store, ...deps]);
     return value;
   }
 }

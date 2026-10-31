@@ -330,11 +330,12 @@ test("bunja.use with scope value pairs propagates unbound required scopes", () =
   );
 
   const getGraph = createGraph();
-  const { value, deps } = createBunjaStore().get(
+  const getStore = createBunjaStore();
+  const { value, deps } = getStore.get(
     getGraph.consumerBunja,
     readScope,
   );
-  const requiredScopes2 = getGraph.consumerBunja.requiredScopes;
+  const requiredScopes2 = getStore.inspect(getGraph.consumerBunja).requiredScopes;
   deepStrictEqual(value, { injected: "injected", outer: "outer" });
   deepStrictEqual(deps, ["outer"]);
   deepStrictEqual(requiredScopes2.length, 1);
@@ -398,8 +399,8 @@ test("bunja.use can provide seed without storing it in graph refs", () => {
   const cleanup = mount();
 
   deepStrictEqual(value, "dependency");
-  deepStrictEqual(consumerBunja.requiredBunjaRefs.length, 1);
-  deepStrictEqual("seed" in consumerBunja.requiredBunjaRefs[0], false);
+  deepStrictEqual(store.inspect(consumerBunja).requiredBunjaRefs.length, 1);
+  deepStrictEqual("seed" in store.inspect(consumerBunja).requiredBunjaRefs[0], false);
 
   cleanup();
 });
@@ -421,7 +422,7 @@ test("prebake rejects root seed and initializes with default seed", () => {
   store.prebake(consumerBunja, readNull);
 
   deepStrictEqual(usedSeeds, ["default", "default"]);
-  deepStrictEqual("seed" in consumerBunja.requiredBunjaRefs[0], false);
+  deepStrictEqual("seed" in store.inspect(consumerBunja).requiredBunjaRefs[0], false);
   throws(
     () => {
       // @ts-expect-error Prebake collects deterministic graph data only.
@@ -456,7 +457,7 @@ test("bunja.will mounts only the selected dependency", () => {
     <T>() => "a" as T,
   );
   deepStrictEqual(value, "a");
-  deepStrictEqual(consumerBunja.relatedBunjas, [aBunja, bBunja]);
+  deepStrictEqual(store.inspect(consumerBunja).relatedBunjas, [aBunja, bBunja]);
 
   const cleanup = mount();
   deepStrictEqual(aMountSpy.mock.callCount(), 1);
@@ -509,13 +510,15 @@ test("bunja.will records optional refs once when thunk is used", () => {
   };
 
   const getGraph = createConsumer();
-  createBunjaStore().get(getGraph.consumerBunja, readNull);
+  const getStore = createBunjaStore();
+  getStore.get(getGraph.consumerBunja, readNull);
 
   const prebakeGraph = createConsumer();
-  createBunjaStore().prebake(prebakeGraph.consumerBunja, readNull);
+  const prebakeStore = createBunjaStore();
+  prebakeStore.prebake(prebakeGraph.consumerBunja, readNull);
 
-  deepStrictEqual(getGraph.consumerBunja.optionalBunjaRefs.length, 1);
-  deepStrictEqual(prebakeGraph.consumerBunja.optionalBunjaRefs.length, 1);
+  deepStrictEqual(getStore.inspect(getGraph.consumerBunja).optionalBunjaRefs.length, 1);
+  deepStrictEqual(prebakeStore.inspect(prebakeGraph.consumerBunja).optionalBunjaRefs.length, 1);
 });
 
 test("relatedBunjas includes nested bunja.will dependencies", () => {
@@ -533,7 +536,7 @@ test("relatedBunjas includes nested bunja.will dependencies", () => {
   const { mount } = store.get(consumerBunja, readNull);
   const cleanup = mount();
 
-  deepStrictEqual(consumerBunja.relatedBunjas, [
+  deepStrictEqual(store.inspect(consumerBunja).relatedBunjas, [
     grandparentDependencyBunja,
     parentDependencyBunja,
   ]);
@@ -563,7 +566,7 @@ test("prebake expands inactive bunja.will dependency graph", () => {
   const cleanup = mount();
 
   deepStrictEqual(value, "consumer");
-  deepStrictEqual(consumerBunja.relatedBunjas, [parentDependencyBunja]);
+  deepStrictEqual(store.inspect(consumerBunja).relatedBunjas, [parentDependencyBunja]);
   deepStrictEqual(grandparentDependencyMountSpy.mock.callCount(), 0);
 
   const prebaked = store.prebake(consumerBunja, readNull);
@@ -572,7 +575,7 @@ test("prebake expands inactive bunja.will dependency graph", () => {
     grandparentDependencyBunja,
     parentDependencyBunja,
   ]);
-  deepStrictEqual(consumerBunja.relatedBunjas, [
+  deepStrictEqual(store.inspect(consumerBunja).relatedBunjas, [
     grandparentDependencyBunja,
     parentDependencyBunja,
   ]);
@@ -702,8 +705,8 @@ test("active optional dependency scopes are part of bunja instance identity", ()
   const second = store.get(consumerBunja, readScope("b"));
   const secondCleanup = second.mount();
 
-  deepStrictEqual(consumerBunja.requiredScopes.length, 1);
-  deepStrictEqual(consumerBunja.requiredScopes[0] === condScope, true);
+  deepStrictEqual(store.inspect(consumerBunja).requiredScopes.length, 1);
+  deepStrictEqual(store.inspect(consumerBunja).requiredScopes[0] === condScope, true);
   deepStrictEqual(first.value.parent?.resource, "a");
   deepStrictEqual(second.value.parent?.resource, "b");
   deepStrictEqual(first.value === second.value, false);
@@ -742,8 +745,8 @@ test("inactive optional dependency scopes do not change bunja instance identity"
   const firstCleanup = first.mount();
   const secondCleanup = second.mount();
 
-  deepStrictEqual(consumerBunja.requiredScopes.length, 1);
-  deepStrictEqual(consumerBunja.requiredScopes[0] === condScope, true);
+  deepStrictEqual(store.inspect(consumerBunja).requiredScopes.length, 1);
+  deepStrictEqual(store.inspect(consumerBunja).requiredScopes[0] === condScope, true);
   deepStrictEqual(first.value, second.value);
   deepStrictEqual(first.deps, [false]);
   deepStrictEqual(second.deps, [false]);
@@ -779,4 +782,241 @@ test("duplicate optional dependency calls are mounted once", () => {
   deepStrictEqual(mountSpy.mock.callCount(), 1);
 
   cleanup();
+});
+
+for (const first of ["get", "prebake"] as const) {
+  test(`graphs are store-local after ${first}, in either store order`, () => {
+    for (const reverse of [false, true]) {
+      const stores = [createBunjaStore(), createBunjaStore()];
+      if (reverse) stores.reverse();
+      const [a, b] = stores;
+      const scope = createScope<string>();
+      const injected = createScope<string>();
+      const calls: string[] = [];
+      const leaf = bunja.withSeed("default", seed => {
+        calls.push(seed);
+        return [bunja.use(scope), bunja.use(injected), seed];
+      });
+      const parent = bunja(() => bunja.use({ bunja: leaf, seed: "child", with: [injected.bind("bound")] }));
+      a[first](parent, <T>() => "a" as T);
+      deepStrictEqual(b.inspect(parent).baked, false);
+      deepStrictEqual(b.snapshot().graphs, []);
+      deepStrictEqual(b.get(parent, <T>() => "b" as T).value, ["b", "bound", "child"]);
+      deepStrictEqual(b.inspect(parent).requiredScopes, [scope]);
+      deepStrictEqual(b.inspect(leaf).scopes, [scope, injected]);
+      deepStrictEqual(calls, [first === "get" ? "child" : "default", "child"]);
+      deepStrictEqual("baked" in parent, false);
+      const result = b.prebake(parent, <T>() => "b" as T);
+      result.requiredScopes.length = 0;
+      deepStrictEqual(b.inspect(parent).requiredScopes, [scope]);
+      a.dispose();
+      deepStrictEqual(a.snapshot().graphs, []);
+      deepStrictEqual(b.inspect(parent).baked, true);
+      a.dispose();
+      b.dispose();
+    }
+  });
+}
+
+test("failed discovery is discarded, successful children remain valid", () => {
+  for (const operation of ["get", "prebake"] as const) {
+    const a = createBunjaStore();
+    const b = createBunjaStore();
+    const failedScope = createScope<string>();
+    const scope = createScope<string>();
+    const child = bunja(() => bunja.use(scope));
+    let fail = true;
+    const parent = bunja(() => {
+      bunja.use(child);
+      if (fail) {
+        bunja.use(failedScope);
+        throw new Error("failed init");
+      }
+      return bunja.use(scope);
+    });
+    throws(() => a[operation](parent, readNull), /failed init/);
+    deepStrictEqual(a.inspect(parent).baked, false);
+    deepStrictEqual(a.inspect(parent).scopes, []);
+    deepStrictEqual(a.snapshot().graphs.map(g => g.bunjaId), [child.id]);
+    deepStrictEqual(b.snapshot().graphs, []);
+    fail = false;
+    b[operation](parent, readNull);
+    a[operation](parent, readNull);
+    deepStrictEqual(a.inspect(parent).requiredScopes, [scope]);
+    deepStrictEqual(b.inspect(parent).requiredScopes, [scope]);
+    a.dispose(); b.dispose();
+  }
+});
+
+test("static declarations are enforced per store and reset on disposal", () => {
+  const store = createBunjaStore();
+  const other = createBunjaStore();
+  const scope = createScope<number>();
+  const first = bunja(() => 1);
+  const second = bunja(() => 2);
+  let dependency = first;
+  const parent = bunja(() => {
+    bunja.use(scope);
+    return bunja.use(dependency);
+  });
+  deepStrictEqual(store.get(parent, <T>() => 1 as T).value, 1);
+  dependency = second;
+  throws(() => store.get(parent, <T>() => 2 as T), /new dependency/);
+  deepStrictEqual(other.get(parent, <T>() => 2 as T).value, 2);
+  store.dispose();
+  deepStrictEqual(store.inspect(parent).baked, false);
+  deepStrictEqual(store.get(parent, <T>() => 2 as T).value, 2);
+  store.dispose(); other.dispose();
+});
+
+test("observation is read-only, supports late attachment, and separates optional/active edges", () => {
+  const hook = (globalThis as any).__BUNJA_DEVTOOLS_GLOBAL_HOOK__ as import("./bunja.ts").BunjaDevtoolsGlobalHook;
+  const store = createBunjaStore();
+  const active = createScope<boolean>();
+  let initialized = 0;
+  let mounted = 0;
+  const child = bunja(() => { initialized++; return {}; });
+  const parent = bunja(() => {
+    const getChild = bunja.will(child);
+    const value = bunja.use(active) ? getChild() : undefined;
+    bunja.effect(() => { mounted++; return () => { mounted--; }; });
+    return value;
+  });
+  const before = store.snapshot();
+  deepStrictEqual(store.inspect(parent).baked, false);
+  deepStrictEqual(store.snapshot(), before);
+  const off = store.get(parent, <T>() => false as T);
+  deepStrictEqual(store.inspect(parent).optionalBunjaRefs.map(ref => ref.bunja), [child]);
+  deepStrictEqual(store.snapshot().instances[0].activeDependencyIds, []);
+  deepStrictEqual(store.inspect(parent).relatedBunjas, [child]);
+  deepStrictEqual(store.snapshot().graphs.length, 1);
+  deepStrictEqual(initialized, 0);
+  deepStrictEqual(mounted, 0);
+  const late = hook.snapshot().find(snapshot => snapshot.storeId === store.id)!;
+  deepStrictEqual(late, store.snapshot());
+  throws(() => (late.graphs as unknown[]).push({}), TypeError);
+  const changes: string[] = [];
+  const unsubscribe = hook.on("graphChanged", event => {
+    if (event.storeId === store.id) changes.push(event.bunjaId);
+  });
+  const on = store.get(parent, <T>() => true as T);
+  deepStrictEqual(initialized, 1);
+  deepStrictEqual(changes, [child.id]);
+  deepStrictEqual(store.snapshot().instances.find(i => i.id === on.bunjaInstance!.id)!.activeDependencyIds, [store.snapshot().instances.find(i => i.bunjaId === child.id)!.id]);
+  const cleanup = on.mount();
+  const cleanup2 = on.mount();
+  deepStrictEqual(mounted, 1);
+  cleanup();
+  deepStrictEqual(mounted, 1);
+  store.dispose();
+  cleanup2();
+  deepStrictEqual(mounted, 0);
+  deepStrictEqual(hook.stores.has(store.id), false);
+  deepStrictEqual(store.snapshot().graphs, []);
+  deepStrictEqual(late.instances.length, 1);
+  store.get(parent, <T>() => false as T);
+  deepStrictEqual(hook.stores.get(store.id)?.deref(), store);
+  deepStrictEqual(changes, [child.id, parent.id]);
+  unsubscribe();
+  store.dispose();
+});
+
+test("an existing legacy devtools hook keeps its listeners when extended", async () => {
+  const globals = globalThis as any;
+  const original = globals.__BUNJA_DEVTOOLS_GLOBAL_HOOK__;
+  const listeners = Object.fromEntries(Object.keys(original.listeners)
+    .filter(key => key !== "graphChanged").map(key => [key, new Set<Function>()]));
+  let created = 0;
+  listeners.storeCreated.add(() => { created++; });
+  const legacy = {
+    bunjas: {}, scopes: {}, listeners,
+    emit(type: string, event: unknown) {
+      for (const listener of listeners[type]) listener(event);
+    },
+    on(type: string, listener: Function) {
+      listeners[type].add(listener);
+      return () => listeners[type].delete(listener);
+    },
+  };
+  globals.__BUNJA_DEVTOOLS_GLOBAL_HOOK__ = legacy;
+  try {
+    const url = new URL("./bunja.ts", import.meta.url);
+    url.search = "legacy-hook";
+    const { createBunjaStore, bunja } = await import(url.href);
+    const store = createBunjaStore();
+    const model = bunja(() => 1);
+    store.get(model, readNull);
+    deepStrictEqual(created, 1);
+    deepStrictEqual(globals.__BUNJA_DEVTOOLS_GLOBAL_HOOK__, legacy);
+    deepStrictEqual(globals.__BUNJA_DEVTOOLS_GLOBAL_HOOK__.snapshot()[0].graphs[0].bunjaId, model.id);
+    store.dispose();
+  } finally {
+    globals.__BUNJA_DEVTOOLS_GLOBAL_HOOK__ = original;
+  }
+});
+
+test("failed init preserves a mounted shared child and its committed graph", () => {
+  const store = createBunjaStore();
+  const scope = createScope<string>();
+  let effects = 0;
+  const child = bunja(() => {
+    const value = bunja.use(scope);
+    bunja.effect(() => { effects++; return () => { effects--; }; });
+    return { value };
+  });
+  const live = store.get(child, <T>() => "shared" as T);
+  const cleanup = live.mount();
+  const graph = store.inspect(child);
+  const parent = bunja(() => {
+    bunja.use(child);
+    throw new Error("parent failed");
+  });
+  for (const operation of ["get", "prebake"] as const) {
+    throws(() => store[operation](parent, <T>() => "shared" as T), /parent failed/);
+    deepStrictEqual(store.inspect(child), graph);
+    deepStrictEqual(store.inspect(parent).baked, false);
+    deepStrictEqual(store.get(child, <T>() => "shared" as T).value === live.value, true);
+    deepStrictEqual(effects, 1);
+  }
+  cleanup();
+  deepStrictEqual(effects, 0);
+  store.dispose();
+});
+
+test("wrapper failure after initialization does not roll back a committed instance graph", () => {
+  let fail = true;
+  const store = createBunjaStore({
+    wrapInstance(fn) {
+      const value = fn(() => {});
+      if (fail) throw new Error("wrapper failed");
+      return value;
+    },
+  });
+  let calls = 0;
+  const model = bunja(() => { calls++; return {}; });
+  throws(() => store.get(model, readNull), /wrapper failed/);
+  deepStrictEqual(store.snapshot().instances.length, 1);
+  deepStrictEqual(store.inspect(model).baked, true);
+  fail = false;
+  store.get(model, readNull);
+  deepStrictEqual(calls, 1);
+  store.dispose();
+});
+
+test("nested snapshot collections cannot mutate store graph or binding tuples", () => {
+  const store = createBunjaStore();
+  const scope = createScope<string>();
+  const child = bunja(() => bunja.use(scope));
+  const parent = bunja(() => bunja.use(child, [scope.bind("bound")]));
+  store.get(parent, readNull);
+  const graph = store.inspect(parent);
+  throws(() => (graph.requiredBunjaRefs as unknown[]).pop(), TypeError);
+  throws(() => (graph.requiredBunjaRefs[0].scopeValuePairs[0] as any)[1] = "changed", TypeError);
+  throws(() => (graph.relatedBunjas as unknown[]).pop(), TypeError);
+  throws(() => (store.inspect(child).requiredScopes as unknown[]).pop(), TypeError);
+  throws(() => (store.snapshot().instances[0].activeDependencyIds as unknown[]).push("changed"), TypeError);
+  deepStrictEqual(store.get(parent, readNull).value, "bound");
+  deepStrictEqual(store.inspect(child).requiredScopes, [scope]);
+  deepStrictEqual(store.inspect(parent), graph);
+  store.dispose();
 });
