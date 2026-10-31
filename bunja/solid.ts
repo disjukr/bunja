@@ -26,6 +26,9 @@ import {
   type ScopeValuePairs,
 } from "./bunja.ts";
 
+// @ts-ignore dev
+const __DEV__ = process.env.NODE_ENV !== "production";
+
 type MaybeAccessor<T> = T | Accessor<T>;
 type AccessedValue<T> = T extends Accessor<infer U> ? U : T;
 function access<T>(maybeAccessor: MaybeAccessor<T>): T {
@@ -91,20 +94,31 @@ export function useBunja<T>(
   };
   const readScope = createMemo(() => {
     const pairs = access(scopeValuePairs);
-    return pairs
-      ? createReadScopeFn(pairs, defaultReadScope)
-      : defaultReadScope;
+    return {
+      scopeValuePairs: pairs,
+      read: pairs ? createReadScopeFn(pairs, defaultReadScope) : defaultReadScope,
+    };
   });
   const entry = createMemo(() => {
-    const read = readScope();
+    const { read, scopeValuePairs } = readScope();
+    const resolvedBunja = access(bunja);
     const scopes = new Set<Scope<unknown>>();
-    const result = store.get(access(bunja), (scope) => {
+    const result = store.get(resolvedBunja, (scope) => {
       scopes.add(scope as Scope<unknown>);
       return read(scope);
     });
     // Initial scope discovery can run inside the instance's untracked root.
     // Subscribe here as well, including scopes reached through dependencies.
     for (const scope of scopes) read(scope);
+    if (__DEV__) {
+      // Keep each call's current hint on its existing memo in the owner tree.
+      Object.assign(getOwner()!, {
+        storeId: store.id,
+        bunja: resolvedBunja,
+        scopeValuePairs,
+        bunjaInstance: result.bunjaInstance,
+      });
+    }
     return result;
   });
   createEffect(() => {

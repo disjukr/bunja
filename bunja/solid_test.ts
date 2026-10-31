@@ -9,16 +9,115 @@ import {
   createContext,
   createRoot,
   createSignal,
+  getOwner,
+  type Owner,
+  useContext,
 } from "solid-js";
-import { bunja, createScope } from "./bunja.ts";
+import { bunja, createScope, type ScopeValuePairs } from "./bunja.ts";
 import {
   bindScope,
+  BunjaStoreContext,
   BunjaStoreProvider,
   createScopeFromContext,
   useBunja,
 } from "./solid.ts";
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
+
+for (const explicit of [false, true]) {
+  test(`Solid owner hints follow ${explicit ? "explicit" : "context"} scopes and inputs`, async () => {
+    const Context = createContext((): string => "default");
+    const Scope = createScopeFromContext(Context);
+    const model = bunja(() => ({ id: bunja.use(Scope) }));
+    const otherModel = bunja(() => ({ id: `other:${bunja.use(Scope)}` }));
+    type HintOwner = Owner & {
+      storeId?: string;
+      bunja?: unknown;
+      scopeValuePairs?: unknown;
+      bunjaInstance?: { value: unknown };
+    };
+    let caller!: Owner;
+    let storeId!: string;
+    let first!: () => { id: string };
+    let second!: typeof first;
+    let changeScope!: (id: string) => void;
+    let changeBunja!: () => void;
+    let dispose!: () => void;
+    let pairs: ScopeValuePairs | undefined;
+    const getRef = { bunja: otherModel };
+    createRoot(cleanup => {
+      dispose = cleanup;
+      const [id, setId] = createSignal("a");
+      const [definition, setDefinition] = createSignal<typeof model | typeof getRef>(model);
+      changeScope = setId;
+      changeBunja = () => { setDefinition(getRef); };
+      createComponent(BunjaStoreProvider, {
+        get children() {
+          return createComponent(Context.Provider, {
+            value: id,
+            get children() {
+              caller = getOwner()!;
+              storeId = useContext(BunjaStoreContext).id;
+              const bindings = explicit
+                ? () => {
+                  pairs = [Scope.bind(id())];
+                  return pairs;
+                }
+                : undefined;
+              first = useBunja(definition, bindings);
+              second = useBunja(model);
+              return null;
+            },
+          });
+        },
+      });
+    });
+    const hints = () => (caller.owned as HintOwner[]).filter(node => "bunjaInstance" in node);
+    try {
+      await settle();
+      const initial = hints();
+      if (process.env.NODE_ENV === "production") {
+        deepStrictEqual(initial, []);
+      } else {
+        strictEqual(initial.length, 2);
+        notStrictEqual(initial[0], initial[1]);
+        strictEqual(initial[0].storeId, storeId);
+        strictEqual(initial[0].bunja, model);
+        strictEqual(initial[0].scopeValuePairs, pairs);
+        strictEqual(initial[1].scopeValuePairs, undefined);
+        strictEqual(initial[0].bunjaInstance, initial[1].bunjaInstance);
+      }
+      changeScope("b");
+      await settle();
+      deepStrictEqual(first(), { id: "b" });
+      if (process.env.NODE_ENV !== "production") {
+        strictEqual(hints()[0], initial[0]);
+        strictEqual(initial[0].scopeValuePairs, pairs);
+        strictEqual(initial[0].bunjaInstance!.value, first());
+        strictEqual(initial[0].bunjaInstance, initial[1].bunjaInstance);
+      }
+      changeBunja();
+      await settle();
+      deepStrictEqual(first(), { id: "other:b" });
+      deepStrictEqual(second(), { id: "b" });
+      if (process.env.NODE_ENV === "production") {
+        deepStrictEqual(hints(), []);
+      } else {
+        deepStrictEqual(hints(), initial);
+        strictEqual(initial[0].bunja, getRef);
+        strictEqual(initial[0].scopeValuePairs, pairs);
+        strictEqual(initial[0].bunjaInstance!.value, first());
+        strictEqual(initial[1].bunja, model);
+        strictEqual(initial[1].bunjaInstance!.value, second());
+        notStrictEqual(initial[0].bunjaInstance, initial[1].bunjaInstance);
+      }
+    } finally {
+      dispose();
+      await settle();
+    }
+    strictEqual(caller.owned, null);
+  });
+}
 
 for (
   const mode of ["context accessor", "bindScope accessor", "explicit binding"]
