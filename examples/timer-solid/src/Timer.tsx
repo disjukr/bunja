@@ -1,8 +1,8 @@
 import { timerBunja } from "./state/timer.ts";
 import { ItemScope } from "./state/item.ts";
 import { TitleEditor } from "./TitleEditor.tsx";
-import { useBunja } from "bunja/solid/v1-compat";
-import { createEffect, Show } from "solid-js";
+import { useBunja } from "bunja/solid";
+import { Show } from "solid-js";
 
 interface Props {
   id: number;
@@ -11,10 +11,6 @@ interface Props {
 
 export function Timer(props: Props) {
   const timer = useBunja(timerBunja, () => [ItemScope.bind(props.id)]);
-
-  createEffect(() => {
-    console.log(timer().title());
-  });
 
   return (
     <div class="timer-item">

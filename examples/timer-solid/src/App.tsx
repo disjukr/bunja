@@ -1,8 +1,8 @@
-import { useBunja } from "bunja/solid/v1-compat";
+import { useBunja } from "bunja/solid";
 import { Timer } from "./Timer.tsx";
 import { Countdown } from "./Countdown.tsx";
 import { appBunja } from "./state/app.ts";
-import { Dynamic } from "solid-js/web";
+import { Dynamic } from "@solidjs/web";
 import { For, Show } from "solid-js";
 
 export function App() {

@@ -9,7 +9,7 @@
   "scripts": {
     "build": "pnpm -r build",
     "typecheck": "pnpm --filter bunja build && pnpm -r typecheck",
-    "test": "pnpm --filter bunja test && pnpm --filter bunja-solid-v1-tests test",
+    "test": "pnpm --filter bunja test && pnpm --filter bunja-solid-v1-tests test && pnpm --filter bunja-timer-solid-example test",
     "check": "pnpm typecheck && pnpm test && pnpm build",
     "version:release": "node scripts/version.mjs"
   },

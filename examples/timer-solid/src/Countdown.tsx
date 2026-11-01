@@ -1,4 +1,4 @@
-import { useBunja } from "bunja/solid/v1-compat";
+import { useBunja } from "bunja/solid";
 import { countdownBunja } from "./state/countdown.ts";
 import { ItemScope } from "./state/item.ts";
 import { TitleEditor } from "./TitleEditor.tsx";

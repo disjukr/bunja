@@ -5,7 +5,7 @@ import { bunja } from "bunja";
  */
 export const soundBunja = bunja(() => {
   const ctx = new AudioContext();
-  let alarmTimeouts: number[] = []; // Track alarm timeouts for cancellation
+  let alarmTimeouts: ReturnType<typeof setTimeout>[] = []; // Track alarm timeouts for cancellation
 
   function beep() {
     const osc = ctx.createOscillator();

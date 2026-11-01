@@ -449,6 +449,6 @@ Development owner metadata remains an internal hint. The v1 compatibility
 entry retains the existing hint behavior; Solid 2 inspector integration is not
 a new public contract.
 
-The timer-solid example intentionally remains on Solid 1 to exercise import-only
-migration. Tests cover Solid 2 source bindings and a separate Solid 1 consumer
-of the built package, including their server conditions.
+The timer-solid example uses Solid 2 and `bunja/solid`. A separate Solid 1
+consumer fixture exercises the compatibility entry of the built package,
+including its server conditions.

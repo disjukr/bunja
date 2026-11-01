@@ -2,8 +2,7 @@ import { bunja } from "bunja";
 import { tickBunja } from "./tick.ts";
 import { soundBunja } from "./sound.ts";
 import { itemBunja, ItemScope } from "./item.ts";
-import { createStore } from "solid-js/store";
-import { createMemo } from "solid-js";
+import { createMemo, createStore } from "solid-js";
 
 export interface TimerSnapshot {
   elapsed: number;
@@ -42,11 +41,14 @@ export const timerBunja = bunja(() => {
     if (timer.running) return;
 
     const startTime = Date.now() - timer.elapsed;
-    setTimer("running", true);
+    setTimer((state) => { state.running = true; });
 
     unsubTick = onTick(() => {
       const elapsed = Date.now() - startTime;
-      setTimer({ elapsed, running: true });
+      setTimer((state) => {
+        state.elapsed = elapsed;
+        state.running = true;
+      });
     });
     beep();
   }
@@ -54,14 +56,14 @@ export const timerBunja = bunja(() => {
   function stop() {
     if (!timer.running) return;
 
-    setTimer("running", false);
+    setTimer((state) => { state.running = false; });
     unsubTick?.();
     unsubTick = null;
     boop();
   }
 
   function reset() {
-    setTimer("elapsed", 0);
+    setTimer((state) => { state.elapsed = 0; });
   }
 
   bunja.effect(() => () => unsubTick?.());

@@ -1,5 +1,5 @@
-import { render } from "solid-js/web";
-import { BunjaStoreProvider } from "bunja/solid/v1-compat";
+import { render } from "@solidjs/web";
+import { BunjaStoreProvider } from "bunja/solid";
 import { App } from "./App.tsx";
 import "./styles.css";
 

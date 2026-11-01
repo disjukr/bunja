@@ -1,5 +1,5 @@
 import { bunja } from "bunja";
-import { createStore } from "solid-js/store";
+import { createStore } from "solid-js";
 
 export type ItemType = "timer" | "countdown";
 
@@ -21,7 +21,7 @@ export const appBunja = bunja(() => {
    */
   function addTimer() {
     const newItem: Item = { id: counter++, type: "timer" };
-    setItems((current) => [...current, newItem]);
+    setItems((items) => { items.push(newItem); });
   }
 
   /**
@@ -29,14 +29,17 @@ export const appBunja = bunja(() => {
    */
   function addCountdown() {
     const newItem: Item = { id: counter++, type: "countdown" };
-    setItems((current) => [...current, newItem]);
+    setItems((items) => { items.push(newItem); });
   }
 
   /**
    * Remove an item by its ID
    */
   function remove(id: number) {
-    setItems((current) => current.filter((item) => item.id !== id));
+    setItems((items) => {
+      const index = items.findIndex((item) => item.id === id);
+      if (index !== -1) items.splice(index, 1);
+    });
   }
 
   return { items, addTimer, addCountdown, remove };
