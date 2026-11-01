@@ -17,13 +17,17 @@
     "./solid": {
       "types": "./dist/solid.d.ts",
       "default": "./dist/solid.js"
+    },
+    "./solid/v1-compat": {
+      "types": "./dist/solid/v1-compat.d.ts",
+      "default": "./dist/solid/v1-compat.js"
     }
   },
   "scripts": {
     "clean": "rm -rf ./dist",
     "build": "tsdown",
-    "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --conditions=browser --test test.ts solid_test.ts react_test.ts override_test.ts"
+    "typecheck": "tsc --noEmit && tsc -p solid/tsconfig.json",
+    "test": "node --import tsx --conditions=browser --test test.ts solid_test.ts react_test.ts override_test.ts && node --import tsx --test solid_server_test.ts"
   },
   "keywords": [
     "bunja",
@@ -41,15 +45,16 @@
     "@types/react-test-renderer": "^19.3.0",
     "react": "^19",
     "react-test-renderer": "^19.3.1",
-    "solid-js": "^1.9.7",
+    "solid-js": "2.0.0-rc.20",
     "tsdown": "0.23.3",
     "typescript": "^5.6.3",
-    "tsx": "^4.20.0"
+    "tsx": "^4.20.0",
+    "solid-js-v1": "npm:solid-js@^1.9.7"
   },
   "peerDependencies": {
     "@types/react": "*",
     "react": ">=18",
-    "solid-js": "^1"
+    "solid-js": "^1.9.7 || ^2.0.0-rc.20"
   },
   "peerDependenciesMeta": {
     "@types/react": {

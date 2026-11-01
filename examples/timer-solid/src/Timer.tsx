@@ -1,7 +1,7 @@
 import { timerBunja } from "./state/timer.ts";
 import { ItemScope } from "./state/item.ts";
 import { TitleEditor } from "./TitleEditor.tsx";
-import { useBunja } from "bunja/solid";
+import { useBunja } from "bunja/solid/v1-compat";
 import { createEffect, Show } from "solid-js";
 
 interface Props {

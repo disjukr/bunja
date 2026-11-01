@@ -188,8 +188,11 @@ importers:
         specifier: ^19.3.1
         version: 19.3.1(react@19.3.1)
       solid-js:
-        specifier: ^1.9.7
-        version: 1.9.17
+        specifier: 2.0.0-rc.20
+        version: 2.0.0-rc.20
+      solid-js-v1:
+        specifier: npm:solid-js@^1.9.7
+        version: solid-js@1.9.17
       tsdown:
         specifier: 0.23.3
         version: 0.23.3(tsx@4.23.15)(typescript@5.9.3)
@@ -273,6 +276,25 @@ importers:
       vite-plugin-solid:
         specifier: ^2.11.8
         version: 2.11.14(solid-js@1.9.17)(vite@5.4.21(@types/node@26.6.5))
+
+  tests/solid-v1:
+    dependencies:
+      bunja:
+        specifier: workspace:*
+        version: file:bunja(@types/react@19.3.0)(react@19.3.1)(solid-js@1.9.17)
+      solid-js:
+        specifier: ^1.9.7
+        version: 1.9.17
+    dependenciesMeta:
+      bunja:
+        injected: true
+    devDependencies:
+      tsx:
+        specifier: ^4.20.0
+        version: 4.23.15
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
 
 packages:
 
@@ -932,6 +954,10 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@solidjs/signals@2.0.0-rc.20':
+    resolution: {integrity: sha512-BIL5dKm0dAtPGsCEuLSNw60spDbmYG5QFK+aHUxPIgPLweA8IeJKd62DiqqqU/jqX0x39ty31GoP1n+ZINkrcg==}
+    engines: {node: '>=22.12.0'}
+
   '@types/babel__core@7.20.5':
     resolution: {integrity: sha512-qoQprZvz5wQFJwMDqeseRXWv3rqMvhgpbXFfVyWhbx9X47POIA6i/+dXefEmZKoAgOaTdaIgNSMqMIU61yRyzA==}
 
@@ -1064,6 +1090,21 @@ packages:
     resolution: {integrity: sha512-khTmKu5NGYTotqcYo8Bew2k4RAE9PuXRSFRXG2lQBrCEQHyeQ/vX6gKMxfokwywBsLiXZMnHsmWMG1pnO8J7uQ==}
     engines: {node: ^6 || ^7 || ^8 || ^9 || ^10 || ^11 || ^12 || >=13.7}
     hasBin: true
+
+  bunja@file:bunja:
+    resolution: {directory: bunja, type: directory}
+    engines: {node: '>=22.18.0'}
+    peerDependencies:
+      '@types/react': '*'
+      react: '>=18'
+      solid-js: ^1.9.7 || ^2.0.0-rc.20
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      react:
+        optional: true
+      solid-js:
+        optional: true
 
   cac@7.1.0:
     resolution: {integrity: sha512-LMDU/U2yA4IPIY8KT0NsNPWEYZvAMkbgyspxJ6btJaYV+WMDOHAZCmB0lsTObiHaRS1V/ztKAl7+TSkTqXyeoA==}
@@ -1328,12 +1369,26 @@ packages:
     peerDependencies:
       seroval: ^1.0
 
+  seroval-plugins@1.7.0:
+    resolution: {integrity: sha512-WM4rArfPtLZriTuxC5DBvNulEwAaRcjNe/dkMOEesOcuvXf5nEwKf5Bw3AT92WHohqcc45+57GdtsCuBTI0mjw==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      seroval: ^1.0
+
   seroval@1.6.12:
     resolution: {integrity: sha512-CqbIVfk/7GL3ITwZI55lcPbpQbjHZ2DD5cUj4iH7E9YsCfHNJV1mx7yNp86Z84w5IpmkZZS/2s5vPOWmVWSdQg==}
     engines: {node: '>=10'}
 
+  seroval@1.7.0:
+    resolution: {integrity: sha512-FU+LUkmDzWNsJ6oubZFN3dGPKny53DRhPJG6nftEaXDL8MIn19+kEE1Gvc+63Go+qPOwVUlKIdKhsu2HN6tksw==}
+    engines: {node: '>=20'}
+
   solid-js@1.9.17:
     resolution: {integrity: sha512-4GAmLOWPfNV8H9Jfn2LSFTpNEG6jiOKPiwd5lnLGQtehHaX6l3TOLzJqQ7mqwB/3k1Yy3zyumFVopmc/tm34ow==}
+
+  solid-js@2.0.0-rc.20:
+    resolution: {integrity: sha512-FxaEI7LHupehFoR9j2CfJAGCoRgiKgeNlzii4szUS6lnD8RkpdtvX1k6WFG71vl5bskXRRsmEQVAXsbIemQOuw==}
+    engines: {node: '>=22.12.0'}
 
   solid-refresh@0.6.3:
     resolution: {integrity: sha512-F3aPsX6hVw9ttm5LYlth8Q15x6MlI/J3Dn+o3EQyRTtTxidepSTwAYdozt01/YA+7ObcciagGEyXIopGZzQtbA==}
@@ -1906,6 +1961,8 @@ snapshots:
   '@rollup/rollup-win32-x64-msvc@4.65.1':
     optional: true
 
+  '@solidjs/signals@2.0.0-rc.20': {}
+
   '@types/babel__core@7.20.5':
     dependencies:
       '@babel/parser': 7.29.11
@@ -2024,6 +2081,12 @@ snapshots:
       electron-to-chromium: 1.5.467
       node-releases: 2.0.60
       update-browserslist-db: 1.3.4(browserslist@4.29.5)
+
+  bunja@file:bunja(@types/react@19.3.0)(react@19.3.1)(solid-js@1.9.17):
+    optionalDependencies:
+      '@types/react': 19.3.0
+      react: 19.3.1
+      solid-js: 1.9.17
 
   cac@7.1.0: {}
 
@@ -2284,13 +2347,26 @@ snapshots:
     dependencies:
       seroval: 1.6.12
 
+  seroval-plugins@1.7.0(seroval@1.7.0):
+    dependencies:
+      seroval: 1.7.0
+
   seroval@1.6.12: {}
+
+  seroval@1.7.0: {}
 
   solid-js@1.9.17:
     dependencies:
       csstype: 3.2.3
       seroval: 1.6.12
       seroval-plugins: 1.6.12(seroval@1.6.12)
+
+  solid-js@2.0.0-rc.20:
+    dependencies:
+      '@solidjs/signals': 2.0.0-rc.20
+      csstype: 3.2.3
+      seroval: 1.7.0
+      seroval-plugins: 1.7.0(seroval@1.7.0)
 
   solid-refresh@0.6.3(solid-js@1.9.17):
     dependencies:

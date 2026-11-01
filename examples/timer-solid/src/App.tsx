@@ -1,4 +1,4 @@
-import { useBunja } from "bunja/solid";
+import { useBunja } from "bunja/solid/v1-compat";
 import { Timer } from "./Timer.tsx";
 import { Countdown } from "./Countdown.tsx";
 import { appBunja } from "./state/app.ts";
