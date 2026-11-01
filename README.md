@@ -409,8 +409,8 @@ const myBunja = bunja(() => {
 
 ### Overriding Bunja for tests
 
-Store overrides are designed for testing: replace a production bunja’s
-implementation while keeping its definition and dependency targets static.
+You can use store overrides to test bunjas with replacement dependencies
+while keeping their definitions and dependency targets static.
 Pass `override(target, init)` descriptors to `createBunjaStore({ overrides })`;
 consumers keep calling `bunja.use(target)` and receive the replacement in that
 store.
