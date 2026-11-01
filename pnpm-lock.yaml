@@ -1176,7 +1176,7 @@ packages:
     peerDependencies:
       '@types/react': '*'
       react: '>=18'
-      solid-js: ^1 || ^2
+      solid-js: ^1 || ^2.0.0-rc.20
     peerDependenciesMeta:
       '@types/react':
         optional: true
