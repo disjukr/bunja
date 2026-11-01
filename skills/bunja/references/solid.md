@@ -1,6 +1,6 @@
 # Solid integration
 
-In Bunja v4, import adapters from `bunja/solid` for Solid 2. Solid 1 applications must import `bunja/solid/v1-compat` instead; do not mix the two adapter families in one tree. `useBunja` returns an **Accessor**, unlike React's direct value. Retain accessor reads in reactive computations/JSX, rather than capturing a one-time destructured value when the resolved instance can change.
+Import adapters from `bunja/solid`. `useBunja` returns an **Accessor**, unlike React's direct value. Retain accessor reads in reactive computations/JSX, rather than capturing a one-time destructured value when the resolved instance can change.
 
 Keep view-facing state in Solid `createSignal`/stores or the app's existing reactive primitives and their supported Solid bindings. Bunja owns the instance and resources; it does not replace reactive tracking. Do not build a manual snapshot/subscription bridge for state that can already be read reactively.
 
@@ -33,7 +33,7 @@ function App() {
 }
 ```
 
-The example uses Solid 2's context component syntax. Compile its JSX with the Solid 2 compiler and `jsxImportSource: "@solidjs/web"`. For Solid 1, use the compat import and `<ScreenContext.Provider value={() => props.screenId}>` instead. Solid 2 store setters use draft mutation; signals as above retain their setter API.
+The example uses context component syntax and `jsxImportSource: "@solidjs/web"`. If the app already uses `bunja/solid/v1-compat`, preserve that adapter and its `<ScreenContext.Provider value={() => props.screenId}>` syntax. Do not mix adapter families in one tree.
 
 Call from a Solid owner. `createScopeFromContext(context)` creates and registers a scope; `bindScope(existingScope, context)` registers an existing one. A scope context supplies values down the component tree; `BunjaStoreProvider` establishes a separate instance-sharing/lifetime boundary. Keep one store provider near the app root by default, as above; feature scope contexts stay inside it. Add another store only for [justified isolation](patterns.md#scope-injection), not routine scope injection.
 

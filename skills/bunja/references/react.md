@@ -1,6 +1,6 @@
 # React integration
 
-**StrictMode compatibility:** Bunja v4 alpha.2's React integration is not compatible with development StrictMode effect replay. With `BunjaStoreProvider` inside a root StrictMode boundary, a React/test-renderer 19.3.1 development probe against v4 alpha.2 started a resource twice but cleaned it up only once, even after final unmount. Do not assume delayed cleanup makes this configuration safe; resolve the integration limitation before relying on it, rather than silently disabling the app's StrictMode. The same probe without StrictMode started and cleaned up once. This reproduction concerns development effect replay and does not establish the same failure in production or every React version.
+**StrictMode compatibility:** The React integration is not compatible with development StrictMode effect replay. With `BunjaStoreProvider` inside a root StrictMode boundary, a development probe with React/test-renderer started a resource twice but cleaned it up only once, even after final unmount. Do not assume delayed cleanup makes this configuration safe; resolve the integration limitation before relying on it, rather than silently disabling the app's StrictMode. The same probe without StrictMode started and cleaned up once. This reproduction concerns development effect replay and does not establish the same failure in production or other renderer configurations.
 
 Import `useBunja`, `BunjaStoreProvider`, and `createScopeFromContext` from `bunja/react`. `useBunja` returns the value directly. Bunja does not make mutable fields reactive.
 
@@ -41,7 +41,7 @@ function App() {
 }
 ```
 
-When molecule actions write through an injected Jotai store, bind that same store to the view's Jotai Provider or pass it in the view Hook's `store` option. In the [model example](../examples/model.ts), actions and view reads must use the same `stateStore`.
+When molecule actions write through an injected Jotai store, bind that same store to the view's Jotai Provider or pass it in the view Hook's `store` option. Actions and view reads must use the same `stateStore`; see the inline [async example](patterns.md#resources-and-replacement).
 
 Declare model/scope definitions outside rendering. Keep injected service identities stable. Keep one `BunjaStoreProvider` near the app root by default, as above. Feature scope contexts select values within that shared DI/store boundary; they do not require another store. Multiple stores require [justified isolation](patterns.md#scope-injection); disposing a store ends its instances.
 

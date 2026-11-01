@@ -5,8 +5,6 @@ description: Design, review, implement, and refactor consumer frontend state wit
 
 # Bunja consumer workflow
 
-These examples target Bunja v4 (`4.0.0-alpha.2`), including store-local graphs and initializer overrides. Check the consumer's installed exports before applying version-sensitive advice; do not assume v3 has these APIs. The v4 package is ESM-only. `bunja/solid` targets Solid 2; Solid 1 uses `bunja/solid/v1-compat`.
-
 1. Establish desired sharing, isolation, lifetime, and replacement behavior: which consumers share an instance, which must differ, who keeps it alive, and what happens when a service changes.
 2. Find concrete evidence of mismatch in the app: coupled screens, duplicate subscriptions, stale responses, persistence attached to the wrong concern, or cleanup that outlives its owner. Several useEffect calls in one component are a signal to review whether state and effects for separate concerns could be extracted and shared. The count alone does not establish a defect; UI-specific effects can stay with their component. Do not infer a defect merely from the use of a global store or Hook.
 3. Choose **keep**, **minimal fix**, or **Bunja**, with a reason tied to that evidence. Consider Bunja for global state and effects too when extraction is straightforward and useful; retain existing ownership when adoption is difficult or the benefit does not justify the change. Respect the user's architecture. Bunja manages lifetime; existing state libraries, including Jotai, can remain. Do not force adoption for simple local state.
@@ -31,4 +29,4 @@ export const documentBunja = bunja(() => ({ id: bunja.use(DocumentScope) }));
 
 Within one store, consumers with the same document ID share this object. A different ID selects another object. A seed would only initialize an object; it would not partition documents. See [patterns](references/patterns.md) for resolution, mounting, and release.
 
-This is a consumer skill. Avoid library maintenance, release work, or universal state-library replacement rules. The references and example describe consumer usage.
+This is a consumer skill. Avoid library maintenance, release work, or universal state-library replacement rules. The references describe consumer usage.

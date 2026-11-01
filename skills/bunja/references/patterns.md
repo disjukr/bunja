@@ -1,6 +1,6 @@
 # Current consumer patterns
 
-Use `bunja`, `createScope`, `createReadScopeFn`, `createBunjaStore`, and `override` from `bunja`. The executable [model](../examples/model.ts) illustrates an app already using Jotai: scoped state stores, atoms, and guarded actions. Resolve imports through the consumer app's dependency configuration; keep another existing signal/atom library when appropriate. Expose reactive primitives and actions to views through that library's framework binding, rather than turning plain mutable fields into a new snapshot/subscription protocol.
+Use `bunja`, `createScope`, `createReadScopeFn`, `createBunjaStore`, and `override` from `bunja`. Resolve imports through the consumer app's dependency configuration; keep another existing signal/atom library when appropriate. Expose reactive primitives and actions to views through that library's framework binding, rather than turning plain mutable fields into a new snapshot/subscription protocol.
 
 ## Scope injection
 
@@ -118,7 +118,7 @@ const loader = bunja(() => {
 });
 ```
 
-`refresh` is inert before mount and after cleanup. The closure guards even a service that ignores abort. Return a function from the Jotai setter when storing an arbitrary error, because an error value can itself be a function. Views must use this same `stateStore`. The composed [model](../examples/model.ts) also demonstrates subscription ownership and persistence.
+`refresh` is inert before mount and after cleanup. The closure guards even a service that ignores abort. Return a function from the Jotai setter when storing an arbitrary error, because an error value can itself be a function. Views must use this same `stateStore`. See [refactoring](refactoring.md#test-the-production-definition-replace-its-dependency) for subscription ownership.
 
 ## Inspect the effective store
 
@@ -143,4 +143,38 @@ try {
 }
 ```
 
-Development tooling identifies graphs by store and definition. Solid owner hints are development metadata, not proof that a particular inspector supports Solid 2. Do not rely on private devtools globals in application logic.
+Development tooling identifies graphs by store and definition. Solid owner hints are development metadata, not proof that a particular inspector understands those hints. Do not rely on private devtools globals in application logic.
+
+
+## Scoped persistence
+
+Keep persistence and view writes on the same state store. Capture the storage implementation and screen key during initialization so another consumer cannot redirect existing actions:
+
+```ts
+import { bunja, createScope } from "bunja";
+import { atom, createStore } from "jotai/vanilla";
+
+interface StorageService {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+}
+const ScreenScope = createScope<string>();
+const StorageScope = createScope<StorageService>();
+const StateStoreScope = createScope<ReturnType<typeof createStore>>();
+const preferences = bunja(() => {
+  const key = `filter:${bunja.use(ScreenScope)}`;
+  const storage = bunja.use(StorageScope);
+  const stateStore = bunja.use(StateStoreScope);
+  const filterAtom = atom(storage.getItem(key) ?? "");
+  return {
+    stateStore,
+    filterAtom,
+    set(value: string) {
+      storage.setItem(key, value);
+      stateStore.set(filterAtom, value);
+    },
+  };
+});
+```
+
+This contract reads storage during initialization and propagates storage failures. A failed write leaves the atom unchanged. Preserve a different existing persistence contract when the app requires one; do not silently swallow errors or add background synchronization during ownership refactoring.
