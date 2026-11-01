@@ -406,3 +406,42 @@ const myBunja = bunja(() => {
   return { fooData, barData };
 });
 ```
+
+### Overriding Bunja for tests
+
+You can use store overrides to test bunjas with replacement dependencies
+while keeping their definitions and dependency targets static.
+Pass `override(target, init)` descriptors to `createBunjaStore({ overrides })`;
+consumers keep calling `bunja.use(target)` and receive the replacement in that
+store.
+
+```ts
+import { strictEqual } from "node:assert";
+import { bunja, createBunjaStore, override } from "bunja";
+
+const greetingBunja = bunja(() => ({
+  greet: (name: string) => `Hello, ${name}!`,
+}));
+const welcomeBunja = bunja(() => {
+  const greeting = bunja.use(greetingBunja);
+  return greeting.greet("Bunja");
+});
+
+const fakeGreeting = { greet: (name: string) => `Hi, ${name}!` };
+const store = createBunjaStore({
+  overrides: [override(greetingBunja, () => fakeGreeting)],
+});
+
+try {
+  const welcome = store.get(welcomeBunja, () => {
+    throw new Error("No scopes are expected in this test.");
+  });
+  strictEqual(welcome.value, "Hi, Bunja!");
+} finally {
+  store.dispose();
+}
+```
+
+Overrides are fixed when the store is created. The initializer must match the
+target’s value and seed types. To supply a fixed value, return it from an
+initializer: `override(target, () => fakeValue)`.
