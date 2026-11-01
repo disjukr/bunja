@@ -5,13 +5,15 @@
   "exports": {
     ".": "./bunja.ts",
     "./react": "./react.ts",
-    "./solid": "./solid.ts"
+    "./solid": "./solid.ts",
+    "./solid/v1-compat": "./solid/v1-compat.ts"
   },
   "publish": {
     "include": [
       "bunja.ts",
       "react.ts",
       "solid.ts",
+      "solid/v1-compat.ts",
       "README.md",
       "LICENSE"
     ]

@@ -9,4 +9,18 @@ const config: UserConfig = {
   format: ["esm"],
 };
 
-export default config;
+const configs: UserConfig[] = [config, {
+  ...config,
+  entry: ["solid/v1-compat.ts"],
+  outDir: "dist/solid",
+  clean: false,
+  tsconfig: "solid/tsconfig.json",
+  plugins: [{
+    name: "external-core",
+    resolveId(source: string) {
+      if (source === "../bunja.ts") return { id: "../bunja.js", external: true };
+    },
+  }],
+}];
+
+export default configs;

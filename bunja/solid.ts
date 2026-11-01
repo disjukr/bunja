@@ -7,7 +7,7 @@ import {
   createMemo,
   createRoot,
   getOwner,
-  type JSX,
+  type Element,
   onCleanup,
   type ParentProps,
   runWithOwner,
@@ -37,18 +37,21 @@ function access<T>(maybeAccessor: MaybeAccessor<T>): T {
 }
 
 export const BunjaStoreContext: Context<BunjaStore> = createContext(
-  createBunjaStore({ wrapInstance: createRoot }),
+  createBunjaStore({
+    // The fallback store outlives individual consumers.
+    wrapInstance: (impl) => runWithOwner(null, () => createRoot(impl)),
+  }),
 );
 
 export function BunjaStoreProvider(
   props: ParentProps,
-): JSX.Element {
+): Element {
   const owner = getOwner();
   const bunjaStore = createBunjaStore({
-    wrapInstance: (impl) => createRoot(impl, owner),
+    wrapInstance: (impl) => runWithOwner(owner, () => createRoot(impl)),
   });
   onCleanup(() => bunjaStore.dispose());
-  return createComponent(BunjaStoreContext.Provider, {
+  return createComponent(BunjaStoreContext, {
     get value() {
       return bunjaStore;
     },
@@ -81,8 +84,8 @@ export function createScopeFromContext<T>(
   return scope;
 }
 
-export function useBunja<T>(
-  bunja: MaybeAccessor<Bunja<T, any> | BunjaGetRef<T, any>>,
+export function useBunja<T, Seed = undefined>(
+  bunja: MaybeAccessor<Bunja<T, Seed> | BunjaGetRef<T, Seed>>,
   scopeValuePairs?: MaybeAccessor<ScopeValuePairs>,
 ): Accessor<T> {
   const owner = getOwner();
@@ -92,38 +95,41 @@ export function useBunja<T>(
     // Restore the consumer context without untracking its accessor.
     return access(runWithOwner(owner, () => useContext(context))) as T;
   };
-  const readScope = createMemo(() => {
-    const pairs = access(scopeValuePairs);
-    return {
-      scopeValuePairs: pairs,
-      read: pairs ? createReadScopeFn(pairs, defaultReadScope) : defaultReadScope,
-    };
-  });
   const entry = createMemo(() => {
-    const { read, scopeValuePairs } = readScope();
+    const pairs = access(scopeValuePairs);
+    const read = pairs
+      ? createReadScopeFn(pairs, defaultReadScope)
+      : defaultReadScope;
     const resolvedBunja = access(bunja);
-    const scopes = new Set<Scope<unknown>>();
-    const result = store.get(resolvedBunja, (scope) => {
-      scopes.add(scope as Scope<unknown>);
-      return read(scope);
+    // A Solid 2 instance root can carry an older snapshot than its consumer.
+    // Resolve each scope once per entry so transitive dependencies see the
+    // same value, even when Bunja enters that root during construction.
+    const resolutionOwner = getOwner();
+    const scopes = new Map<Scope<unknown>, unknown>();
+    const result = store.get(resolvedBunja, <S>(scope: Scope<S>): S => {
+      const key = scope as Scope<unknown>;
+      if (!scopes.has(key)) {
+        scopes.set(key, runWithOwner(resolutionOwner, () => read(scope)));
+      }
+      return scopes.get(key) as S;
     });
     // Initial scope discovery can run inside the instance's untracked root.
     // Subscribe here as well, including scopes reached through dependencies.
-    for (const scope of scopes) read(scope);
+    for (const scope of scopes.keys()) read(scope);
     if (__DEV__) {
       // Keep each call's current hint on its existing memo in the owner tree.
       Object.assign(getOwner()!, {
         storeId: store.id,
         bunja: resolvedBunja,
-        scopeValuePairs,
+        scopeValuePairs: pairs,
         bunjaInstance: result.bunjaInstance,
       });
     }
     return result;
   });
-  createEffect(() => {
-    const cleanup = entry().mount();
-    onCleanup(() => setTimeout(cleanup));
+  createEffect(entry, (resolved) => {
+    const cleanup = resolved.mount();
+    return () => { setTimeout(cleanup); };
   });
   return () => entry().value;
 }

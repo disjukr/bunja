@@ -16,13 +16,15 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "preserve",
-    "jsxImportSource": "solid-js",
+    "jsxImportSource": "@solidjs/web",
     "noEmit": true,
     "types": [
-      "vite/client"
+      "vite/client",
+      "node"
     ]
   },
   "include": [
-    "src"
+    "src",
+    "state_test.ts"
   ]
 }

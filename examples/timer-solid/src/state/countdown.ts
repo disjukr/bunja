@@ -2,8 +2,7 @@ import { bunja } from "bunja";
 import { tickBunja } from "./tick.ts";
 import { soundBunja } from "./sound.ts";
 import { itemBunja, ItemScope } from "./item.ts";
-import { createStore } from "solid-js/store";
-import { createMemo } from "solid-js";
+import { createMemo, createStore } from "solid-js";
 
 export interface CountdownSnapshot {
   remaining: number;
@@ -47,29 +46,29 @@ export const countdownBunja = bunja(() => {
 
   let unsubTick: (() => void) | null = null;
 
-  function start() {
+  function start(duration = countdown.remaining) {
     if (countdown.running || countdown.finished) return;
 
     const startTime = Date.now();
-    const targetTime = startTime + countdown.remaining;
+    const targetTime = startTime + duration;
 
-    setCountdown("running", true);
+    setCountdown((state) => { state.running = true; });
 
     unsubTick = onTick(() => {
       const now = Date.now();
       const remaining = Math.max(0, targetTime - now);
 
       if (remaining === 0) {
-        setCountdown({
-          remaining: 0,
-          running: false,
-          finished: true,
+        setCountdown((state) => {
+          state.remaining = 0;
+          state.running = false;
+          state.finished = true;
         });
         unsubTick?.();
         unsubTick = null;
         alarm(); // alarm sound when countdown finished
       } else {
-        setCountdown("remaining", remaining);
+        setCountdown((state) => { state.remaining = remaining; });
       }
     });
     beep();
@@ -78,7 +77,7 @@ export const countdownBunja = bunja(() => {
   function stop() {
     if (!countdown.running) return;
 
-    setCountdown("running", false);
+    setCountdown((state) => { state.running = false; });
     unsubTick?.();
     unsubTick = null;
     boop();
@@ -87,10 +86,10 @@ export const countdownBunja = bunja(() => {
   function reset() {
     if (countdown.finished) stopAlarm();
 
-    setCountdown({
-      remaining: initialTime,
-      running: false,
-      finished: false,
+    setCountdown((state) => {
+      state.remaining = initialTime;
+      state.running = false;
+      state.finished = false;
     });
     unsubTick?.();
     unsubTick = null;
@@ -100,9 +99,9 @@ export const countdownBunja = bunja(() => {
     if (countdown.running) return;
 
     initialTime = newDuration;
-    setCountdown({
-      remaining: newDuration,
-      finished: false,
+    setCountdown((state) => {
+      state.remaining = newDuration;
+      state.finished = false;
     });
   }
 
@@ -113,7 +112,8 @@ export const countdownBunja = bunja(() => {
     if (countdown.finished || countdown.remaining === 30000) {
       if (newDuration > 0) {
         setDuration(newDuration);
-        start();
+        // Solid 2 writes commit later; pass the new duration directly.
+        start(newDuration);
       }
     } else {
       // Resume from remaining time when restarting after stop

@@ -6,14 +6,17 @@ import {
 } from "node:assert";
 import {
   createComponent,
+  createEffect,
+  createMemo,
+  flush,
   createContext,
   createRoot,
   createSignal,
   getOwner,
-  type Owner,
-  useContext,
+  onCleanup,
+  runWithOwner,
 } from "solid-js";
-import { bunja, createScope, type ScopeValuePairs } from "./bunja.ts";
+import { bunja, createScope, createBunjaStore, override } from "./bunja.ts";
 import {
   bindScope,
   BunjaStoreContext,
@@ -22,102 +25,22 @@ import {
   useBunja,
 } from "./solid.ts";
 
-const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
+const settle = async () => {
+  flush();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  flush();
+};
 
-for (const explicit of [false, true]) {
-  test(`Solid owner hints follow ${explicit ? "explicit" : "context"} scopes and inputs`, async () => {
-    const Context = createContext((): string => "default");
-    const Scope = createScopeFromContext(Context);
-    const model = bunja(() => ({ id: bunja.use(Scope) }));
-    const otherModel = bunja(() => ({ id: `other:${bunja.use(Scope)}` }));
-    type HintOwner = Owner & {
-      storeId?: string;
-      bunja?: unknown;
-      scopeValuePairs?: unknown;
-      bunjaInstance?: { value: unknown };
-    };
-    let caller!: Owner;
-    let storeId!: string;
-    let first!: () => { id: string };
-    let second!: typeof first;
-    let changeScope!: (id: string) => void;
-    let changeBunja!: () => void;
-    let dispose!: () => void;
-    let pairs: ScopeValuePairs | undefined;
-    const getRef = { bunja: otherModel };
-    createRoot(cleanup => {
-      dispose = cleanup;
-      const [id, setId] = createSignal("a");
-      const [definition, setDefinition] = createSignal<typeof model | typeof getRef>(model);
-      changeScope = setId;
-      changeBunja = () => { setDefinition(getRef); };
-      createComponent(BunjaStoreProvider, {
-        get children() {
-          return createComponent(Context.Provider, {
-            value: id,
-            get children() {
-              caller = getOwner()!;
-              storeId = useContext(BunjaStoreContext).id;
-              const bindings = explicit
-                ? () => {
-                  pairs = [Scope.bind(id())];
-                  return pairs;
-                }
-                : undefined;
-              first = useBunja(definition, bindings);
-              second = useBunja(model);
-              return null;
-            },
-          });
-        },
-      });
-    });
-    const hints = () => (caller.owned as HintOwner[]).filter(node => "bunjaInstance" in node);
-    try {
-      await settle();
-      const initial = hints();
-      if (process.env.NODE_ENV === "production") {
-        deepStrictEqual(initial, []);
-      } else {
-        strictEqual(initial.length, 2);
-        notStrictEqual(initial[0], initial[1]);
-        strictEqual(initial[0].storeId, storeId);
-        strictEqual(initial[0].bunja, model);
-        strictEqual(initial[0].scopeValuePairs, pairs);
-        strictEqual(initial[1].scopeValuePairs, undefined);
-        strictEqual(initial[0].bunjaInstance, initial[1].bunjaInstance);
-      }
-      changeScope("b");
-      await settle();
-      deepStrictEqual(first(), { id: "b" });
-      if (process.env.NODE_ENV !== "production") {
-        strictEqual(hints()[0], initial[0]);
-        strictEqual(initial[0].scopeValuePairs, pairs);
-        strictEqual(initial[0].bunjaInstance!.value, first());
-        strictEqual(initial[0].bunjaInstance, initial[1].bunjaInstance);
-      }
-      changeBunja();
-      await settle();
-      deepStrictEqual(first(), { id: "other:b" });
-      deepStrictEqual(second(), { id: "b" });
-      if (process.env.NODE_ENV === "production") {
-        deepStrictEqual(hints(), []);
-      } else {
-        deepStrictEqual(hints(), initial);
-        strictEqual(initial[0].bunja, getRef);
-        strictEqual(initial[0].scopeValuePairs, pairs);
-        strictEqual(initial[0].bunjaInstance!.value, first());
-        strictEqual(initial[1].bunja, model);
-        strictEqual(initial[1].bunjaInstance!.value, second());
-        notStrictEqual(initial[0].bunjaInstance, initial[1].bunjaInstance);
-      }
-    } finally {
-      dispose();
-      await settle();
-    }
-    strictEqual(caller.owned, null);
-  });
+// Solid 2 providers return lazy children; consume them as a renderer would.
+function renderProvider(props: Parameters<typeof BunjaStoreProvider>[0]) {
+  const view = createComponent(BunjaStoreProvider, props);
+  createEffect(() => {
+    let value: unknown = view;
+    while (typeof value === "function") value = value();
+    return value;
+  }, () => {});
 }
+
 
 for (
   const mode of ["context accessor", "bindScope accessor", "explicit binding"]
@@ -151,9 +74,9 @@ for (
       dispose = cleanup;
       const [id, setId] = createSignal("a");
       change = setId;
-      createComponent(BunjaStoreProvider, {
+      renderProvider({
         get children() {
-          return createComponent(Context.Provider, {
+          return createComponent(Context, {
             value: id,
             get children() {
               const bindings = explicit ? () => [Scope.bind(id())] : undefined;
@@ -231,9 +154,9 @@ test("Solid bindScope, explicit precedence and mixed context fallback", async ()
     const [explicit, setExplicit] = createSignal(true);
     change = setId;
     override = setExplicit;
-    createComponent(BunjaStoreProvider, {
+    renderProvider({
       get children() {
-        return createComponent(Other.Provider, {
+        return createComponent(Other, {
           value: id,
           get children() {
             value = useBunja(
@@ -283,7 +206,7 @@ test("Solid providers independently discover a shared definition", async () => {
   for (const value of ["a", "b"]) {
     createRoot(dispose => {
       roots.push(dispose);
-      createComponent(BunjaStoreProvider, {
+      renderProvider({
         get children() {
           values.push(useBunja(model, [scope.bind(value)]));
           return null;
@@ -305,4 +228,140 @@ test("Solid providers independently discover a shared definition", async () => {
     await settle();
   }
   deepStrictEqual(events, ["start:a", "start:b", "stop:a", "stop:b"]);
+});
+
+for (const provider of [false, true]) {
+  test(`Solid ${provider ? "provider" : "fallback"} survives its first consumer`, async () => {
+    let mounts = 0, releases = 0, rootDisposals = 0;
+    const model = bunja(() => {
+      const [count, setCount] = createSignal(0);
+      const doubled = createMemo(() => count() * 2);
+      onCleanup(() => rootDisposals++);
+      bunja.effect(() => {
+        mounts++;
+        setCount(1);
+        return () => { releases++; };
+      });
+      return { count, setCount, doubled };
+    });
+    let first!: ReturnType<typeof useBunja<ReturnType<typeof model.init>>>;
+    let second!: typeof first;
+    let stopFirst!: () => void, stopSecond!: () => void, stopProvider!: () => void;
+    const consumers = () => {
+      createRoot(stop => { stopFirst = stop; first = useBunja(model); });
+      createRoot(stop => { stopSecond = stop; second = useBunja(model); });
+      return null;
+    };
+    createRoot(stop => {
+      stopProvider = stop;
+      if (provider) renderProvider({ get children() { return consumers(); } });
+      else consumers();
+    });
+    await settle();
+    strictEqual(first(), second());
+    strictEqual(mounts, 1);
+    strictEqual(second().doubled(), 2);
+    stopFirst();
+    await settle();
+    strictEqual(releases, 0);
+    strictEqual(rootDisposals, 0);
+    second().setCount(4);
+    await settle();
+    strictEqual(second().doubled(), 8);
+    stopSecond();
+    await settle();
+    strictEqual(releases, 1);
+    strictEqual(rootDisposals, 1);
+    stopProvider();
+    await settle();
+    strictEqual(releases, 1);
+    let remounted!: typeof first, stopRemount!: () => void;
+    createRoot(stop => {
+      stopRemount = stop;
+      if (provider) renderProvider({ get children() { remounted = useBunja(model); return null; } });
+      else remounted = useBunja(model);
+    });
+    await settle();
+    strictEqual(mounts, 2);
+    strictEqual(remounted().count(), 1);
+    stopRemount();
+    await settle();
+    strictEqual(releases, 2);
+    strictEqual(rootDisposals, 2);
+  });
+}
+
+test("Solid refs, seeds, dynamic definitions and store-local overrides", async () => {
+  const service = bunja(() => "original");
+  const model = bunja.withSeed(0, seed => ({ seed, service: bunja.use(service) }));
+  const alternate = bunja.withSeed(0, () => ({ seed: -1, service: bunja.use(service) }));
+  let value!: () => { seed: number; service: string };
+  let setSeed!: (seed: number) => void, replace!: () => void, stop!: () => void;
+  let store!: ReturnType<typeof createBunjaStore>;
+  createRoot(dispose => {
+    stop = dispose;
+    const owner = getOwner();
+    store = createBunjaStore({
+      overrides: [override(service, () => "replacement")],
+      wrapInstance: init => runWithOwner(owner, () => createRoot(init)),
+    });
+    onCleanup(() => store.dispose());
+    const [seed, writeSeed] = createSignal(1);
+    const [other, writeOther] = createSignal(false);
+    setSeed = writeSeed;
+    replace = () => { writeOther(true); };
+    const view = createComponent(BunjaStoreContext, {
+      value: store,
+      get children() {
+        value = useBunja(() => other() ? alternate : { bunja: model, seed: seed() });
+        return null;
+      },
+    });
+    createEffect(() => {
+      let result: unknown = view;
+      while (typeof result === "function") result = result();
+      return result;
+    }, () => {});
+  });
+  await settle();
+  deepStrictEqual(value(), { seed: 1, service: "replacement" });
+  const first = value();
+  setSeed(2);
+  await settle();
+  // Seeds initialize instances; they do not change sharing identity.
+  strictEqual(value(), first);
+  deepStrictEqual(value(), { seed: 1, service: "replacement" });
+  replace();
+  await settle();
+  deepStrictEqual(value(), { seed: -1, service: "replacement" });
+  stop();
+  await settle();
+});
+
+test("Solid discovers a new transitive scope in the current consumer snapshot", async () => {
+  const Context = createContext((): string => "default");
+  const Scope = createScopeFromContext(Context);
+  const initial = bunja(() => ({ id: "initial" }));
+  const leaf = bunja(() => ({ id: bunja.use(Scope) }));
+  const replacement = bunja(() => bunja.use(leaf));
+  let value!: () => { id: string }, change!: () => void, stop!: () => void;
+  createRoot(dispose => {
+    stop = dispose;
+    const [id, setId] = createSignal("a");
+    const [definition, setDefinition] = createSignal(initial);
+    change = () => { setId("b"); setDefinition(replacement); };
+    renderProvider({ get children() {
+      return createComponent(Context, { value: id, get children() {
+        value = useBunja(definition);
+        return null;
+      } });
+    } });
+  });
+  await settle();
+  strictEqual(value().id, "initial");
+  change();
+  await settle();
+  strictEqual(value().id, "b");
+  stop();
+  await settle();
 });

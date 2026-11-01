@@ -1,0 +1,6 @@
+{
+  "extends": "../../bunja/tsconfig.json",
+  "include": [
+    "*.ts"
+  ]
+}

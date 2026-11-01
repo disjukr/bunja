@@ -2,6 +2,10 @@ packages:
   - bunja
   - devtools/*
   - examples/*
+  - tests/*
 
 allowBuilds:
   esbuild: true
+
+syncInjectedDepsAfterScripts:
+  - build
