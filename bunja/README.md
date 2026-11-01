@@ -282,65 +282,6 @@ result.requiredScopes;
 The normal `store.get` and `useBunja` paths do not prebake automatically. They
 still mount only the active `bunja.will` branch.
 
-### Overriding Bunja in a store
-
-Keep production bunjas and their dependency targets static. To replace an
-implementation in a test, pass `override(target, init)` descriptors to
-`createBunjaStore({ overrides })`. Consumers can keep calling
-`bunja.use(target)` without changing their definitions.
-
-```ts
-import { strictEqual } from "node:assert";
-import { bunja, createBunjaStore, override } from "bunja";
-
-const greetingBunja = bunja(() => ({
-  greet: (name: string) => `Hello, ${name}!`,
-}));
-const welcomeBunja = bunja(() => {
-  const greeting = bunja.use(greetingBunja);
-  return greeting.greet("Bunja");
-});
-
-const fakeGreeting = { greet: (name: string) => `Hi, ${name}!` };
-const store = createBunjaStore({
-  overrides: [override(greetingBunja, () => fakeGreeting)],
-});
-
-try {
-  const welcome = store.get(welcomeBunja, () => {
-    throw new Error("No scopes are expected in this test.");
-  });
-  const unmount = welcome.mount();
-  try {
-    strictEqual(welcome.value, "Hi, Bunja!");
-  } finally {
-    unmount();
-  }
-} finally {
-  store.dispose();
-}
-```
-
-Overrides apply only to that store, including dependencies reached through
-`bunja.use` and called `bunja.will` thunks. Other stores keep their own
-implementations. The configuration is copied at store creation; create another
-store to use a different set of overrides.
-
-The replacement initializer must return the target's value type. For
-`bunja.withSeed` targets, it receives the target's seed type and uses the same
-default and first-instance seed rules. It can use scopes, dependencies, and
-`bunja.effect` under the normal init rules; the replacement's dependencies and
-scopes determine the store's effective graph and instance sharing. Duplicate
-override targets are rejected, and circular dependencies are rejected when
-resolved or prebaked.
-
-Always wrap a fixed value in an initializer: `override(target, () => fakeValue)`.
-This also works for function-valued results. Mounting starts effects, and
-unmounting the last user runs their cleanup. `store.dispose()` disposes remaining
-instances, but does not call methods such as `fakeValue.dispose()` automatically.
-Manage externally created fake resources explicitly, or register cleanup with
-`bunja.effect` in the replacement initializer.
-
 ### Dependency injection using Scope
 
 You can use a bunja for local state management.\
@@ -465,3 +406,42 @@ const myBunja = bunja(() => {
   return { fooData, barData };
 });
 ```
+
+### Overriding Bunja for tests
+
+Store overrides are designed for testing: replace a production bunja’s
+implementation while keeping its definition and dependency targets static.
+Pass `override(target, init)` descriptors to `createBunjaStore({ overrides })`;
+consumers keep calling `bunja.use(target)` and receive the replacement in that
+store.
+
+```ts
+import { strictEqual } from "node:assert";
+import { bunja, createBunjaStore, override } from "bunja";
+
+const greetingBunja = bunja(() => ({
+  greet: (name: string) => `Hello, ${name}!`,
+}));
+const welcomeBunja = bunja(() => {
+  const greeting = bunja.use(greetingBunja);
+  return greeting.greet("Bunja");
+});
+
+const fakeGreeting = { greet: (name: string) => `Hi, ${name}!` };
+const store = createBunjaStore({
+  overrides: [override(greetingBunja, () => fakeGreeting)],
+});
+
+try {
+  const welcome = store.get(welcomeBunja, () => {
+    throw new Error("No scopes are expected in this test.");
+  });
+  strictEqual(welcome.value, "Hi, Bunja!");
+} finally {
+  store.dispose();
+}
+```
+
+Overrides are fixed when the store is created. The initializer must match the
+target’s value and seed types. To supply a fixed value, return it from an
+initializer: `override(target, () => fakeValue)`.
