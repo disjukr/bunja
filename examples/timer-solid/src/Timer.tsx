@@ -16,9 +16,9 @@ export function Timer(props: Props) {
     <div class="timer-item">
       <TitleEditor
         title={timer().title()}
-        setTitle={timer().setTitle}
+        setTitle={(value) => timer().setTitle(value)}
         editingTitle={timer().editingTitle()}
-        setEditingTitle={timer().setEditingTitle}
+        setEditingTitle={(value) => timer().setEditingTitle(value)}
         icon="⏱️"
       />
 
@@ -39,7 +39,7 @@ export function Timer(props: Props) {
             <button
               type="button"
               class="timer-btn success"
-              onClick={timer().start}
+              onClick={() => timer().start()}
             >
               Start
             </button>
@@ -48,7 +48,7 @@ export function Timer(props: Props) {
           <button
             type="button"
             class="timer-btn danger"
-            onClick={timer().stop}
+            onClick={() => timer().stop()}
           >
             Stop
           </button>
@@ -57,7 +57,7 @@ export function Timer(props: Props) {
         <button
           type="button"
           class="timer-btn secondary"
-          onClick={timer().reset}
+          onClick={() => timer().reset()}
         >
           Reset
         </button>

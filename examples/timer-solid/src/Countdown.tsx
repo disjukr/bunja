@@ -26,9 +26,9 @@ export function Countdown(props: Props) {
     <div class="timer-item">
       <TitleEditor
         title={countdown().title()}
-        setTitle={countdown().setTitle}
+        setTitle={(value) => countdown().setTitle(value)}
         editingTitle={countdown().editingTitle()}
-        setEditingTitle={countdown().setEditingTitle}
+        setEditingTitle={(value) => countdown().setEditingTitle(value)}
         icon="⏰"
       />
 
@@ -98,7 +98,7 @@ export function Countdown(props: Props) {
           <button
             type="button"
             class="timer-btn danger"
-            onClick={countdown().stop}
+            onClick={() => countdown().stop()}
           >
             Stop
           </button>

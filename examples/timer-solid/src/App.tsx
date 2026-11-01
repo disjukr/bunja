@@ -18,14 +18,14 @@ export function App() {
         <button
           type="button"
           class="add-timer-btn"
-          onClick={app().addTimer}
+          onClick={() => app().addTimer()}
         >
           Add new timer
         </button>
         <button
           type="button"
           class="add-timer-btn"
-          onClick={app().addCountdown}
+          onClick={() => app().addCountdown()}
         >
           Add new countdown
         </button>
