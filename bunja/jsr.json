@@ -13,9 +13,9 @@
       "bunja.ts",
       "react.ts",
       "solid.ts",
+      "solid/v1-compat.ts",
       "README.md",
-      "LICENSE",
-      "solid/v1-compat.ts"
+      "LICENSE"
     ]
   }
 }
